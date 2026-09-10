@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard } from 'lucide-react';
+import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard, Database } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { initializeStorage, storage, STORAGE_KEYS } from '../../services/storageService';
@@ -313,14 +313,59 @@ export const SiteSettings = () => {
         </div>
       </div>
 
-      {/* Online Server & Cloud Database Section */}
+      {/* Supabase Cloud Database Integration Status */}
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Database size={22} color="var(--success)" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Supabase Cloud Database Integration</h3>
+              <p style={{ fontSize: '0.85rem' }}>
+                PostgreSQL cloud database for real-time synchronization across all student & teacher devices.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('your-project') ? (
+              <span className="badge badge-success" style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>
+                🟢 Connected to Supabase Cloud
+              </span>
+            ) : (
+              <span className="badge badge-outline" style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>
+                ⚡ Fast LocalStorage Mode (Ready to Link Cloud)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ background: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+            Quick Setup Instructions:
+          </div>
+          <ol style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', color: 'var(--text-secondary)' }}>
+            <li>Create a free project at <a href="https://supabase.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>supabase.com</a></li>
+            <li>In Supabase Dashboard &rarr; <strong>SQL Editor</strong> &rarr; Run the provided script from <code>supabase_schema.sql</code></li>
+            <li>In your <code>.env</code> file (or Vercel Project Environment Variables), set:
+              <div style={{ background: 'var(--bg-primary)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                VITE_SUPABASE_URL=https://your-project.supabase.co<br />
+                VITE_SUPABASE_ANON_KEY=your-anon-public-key
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      {/* Online Server & JSON Backup Section */}
       <div className="glass-card" style={{ padding: '2rem', border: '1px solid rgba(99, 102, 241, 0.4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
           <Shield size={24} color="var(--primary)" />
           <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Future Online Server & Data Migration</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Complete JSON Database Backup & Migration</h3>
             <p style={{ fontSize: '0.85rem' }}>
-              Export or import your entire LMS database (subjects, classes, lessons, quizzes, notes, students, invoices) as standardized JSON. Ready for cloud hosting (Node.js/Express, Firebase, Supabase, or MongoDB).
+              Export or import your entire LMS database (subjects, classes, lessons, quizzes, notes, students, invoices) as standardized JSON.
             </p>
           </div>
         </div>
@@ -337,7 +382,7 @@ export const SiteSettings = () => {
 
         <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
           <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>
-            Import / Restore JSON Database from Online Server Backup
+            Import / Restore JSON Database
           </label>
           <textarea
             className="form-control"

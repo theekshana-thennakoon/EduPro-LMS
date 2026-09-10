@@ -366,12 +366,24 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
+  padding: 0 1.75rem;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   .top-navbar {
     padding: 0 1rem;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-navbar {
+    padding: 0 0.5rem;
+    height: 60px;
+    gap: 0.35rem;
   }
 }
 
@@ -383,19 +395,106 @@ textarea.form-control {
   font-size: 1.25rem;
   color: var(--text-primary);
   cursor: pointer;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .brand-logo {
+    gap: 0.5rem;
+  }
 }
 
 .brand-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   box-shadow: 0 4px 12px var(--primary-glow);
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+}
+
+.brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+@media (max-width: 480px) {
+  .brand-title {
+    font-size: 0.95rem !important;
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand-title {
+    max-width: 90px;
+  }
+}
+
+.nav-hamburger-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  .nav-hamburger-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.nav-btn-icon-only {
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .nav-btn-icon-only {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
+.nav-auth-btn {
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .nav-auth-btn {
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.78rem !important;
+    gap: 0.3rem !important;
+  }
 }
 
 /* Sidebar */

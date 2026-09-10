@@ -28,24 +28,23 @@ export const Navbar = ({ onToggleSidebar, onLogoClick, onViewChange }) => {
   return (
     <>
       <header className="top-navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
           {/* Mobile hamburger button */}
           <button
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm nav-hamburger-btn"
             onClick={onToggleSidebar}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="Toggle Menu"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
 
           {/* Logo & Institute Name */}
           <div className="brand-logo" onClick={handleBrandClick} style={{ cursor: 'pointer' }}>
             <div className="brand-icon">
-              <GraduationCap size={24} />
+              <GraduationCap size={20} />
             </div>
-            <div>
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.1 }}>
+            <div style={{ minWidth: 0 }}>
+              <div className="brand-title">
                 {settings?.siteName || 'EduPro LMS'}
               </div>
               <div className="brand-subtitle-text" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
@@ -56,15 +55,14 @@ export const Navbar = ({ onToggleSidebar, onLogoClick, onViewChange }) => {
         </div>
 
         {/* Right side controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           {/* Dark / Light Mode Switcher */}
           <button
             onClick={toggleTheme}
-            className="btn btn-secondary btn-sm"
-            style={{ width: '40px', height: '40px', padding: 0, borderRadius: '50%' }}
+            className="btn btn-secondary btn-sm nav-btn-icon-only"
             title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
           >
-            {theme === 'dark' ? <Sun size={18} color="#f59e0b" /> : <Moon size={18} color="#6366f1" />}
+            {theme === 'dark' ? <Sun size={17} color="#f59e0b" /> : <Moon size={17} color="#6366f1" />}
           </button>
 
           {/* User Auth Section */}
@@ -80,12 +78,12 @@ export const Navbar = ({ onToggleSidebar, onLogoClick, onViewChange }) => {
                   className="user-avatar"
                 />
                 <div className="user-name-text" style={{ display: 'flex', flexDirection: 'column', paddingRight: '0.25rem' }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {currentUser?.name}
                   </span>
                   <span
                     style={{
-                      fontSize: '0.7rem',
+                      fontSize: '0.68rem',
                       color: isTeacher ? 'var(--primary)' : 'var(--success)',
                       fontWeight: 600,
                       textTransform: 'uppercase'
@@ -152,11 +150,10 @@ export const Navbar = ({ onToggleSidebar, onLogoClick, onViewChange }) => {
           ) : (
             <button
               onClick={() => setAuthModalOpen(true)}
-              className="btn btn-primary btn-sm"
-              style={{ padding: '0.55rem 1.15rem' }}
+              className="btn btn-primary btn-sm nav-auth-btn"
             >
-              <LogIn size={16} />
-              <span>Sign In / Register</span>
+              <LogIn size={15} />
+              <span>Sign In</span>
             </button>
           )}
         </div>

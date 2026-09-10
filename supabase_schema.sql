@@ -156,29 +156,14 @@ CREATE POLICY "Public read quiz_attempts" ON quiz_attempts FOR SELECT USING (tru
 CREATE POLICY "Public write quiz_attempts" ON quiz_attempts FOR ALL USING (true);
 
 -- ============================================================
--- INITIAL SEED DATA
+-- INITIAL SEED DATA (ADMIN TEACHER ONLY - ZERO DEMO DATA)
 -- ============================================================
 INSERT INTO site_settings (id, site_name, institute_title, currency_symbol, tagline)
 VALUES ('default', 'EduPro Academy', 'Global Online Institute of Excellence', 'Rs.', 'Empowering future leaders through world-class online education')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO subjects (id, name, code, description, icon, color)
-VALUES 
-  ('subj-math', 'Pure Mathematics & Calculus', 'MATH101', 'Differential and integral calculus, vector algebra, differential equations, and complex analysis.', '📐', '#4f46e5'),
-  ('subj-phys', 'Advanced Theoretical Physics', 'PHYS201', 'Classical mechanics, thermodynamics, wave optics, electromagnetism, and atomic quantum models.', '⚡', '#06b6d4'),
-  ('subj-chem', 'Organic & Physical Chemistry', 'CHEM301', 'Hydrocarbon mechanisms, chemical equilibrium, thermodynamics, molecular orbital theory, and kinetics.', '🧪', '#10b981'),
-  ('subj-bio', 'Cell Biology & Molecular Genetics', 'BIO401', 'Cellular physiology, Mendelian genetics, recombinant DNA biotechnology, and ecosystem dynamics.', '🧬', '#8b5cf6')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO grades (id, name, code, level, description, color)
-VALUES
-  ('grade-10', 'Grade 10', 'G10', 10, 'Foundational secondary school curriculum.', '#06b6d4'),
-  ('grade-11', 'Grade 11', 'G11', 11, 'Intermediate pre-university studies.', '#3b82f6'),
-  ('grade-12', 'Grade 12 / AP', 'G12-AP', 12, 'Advanced Placement and university preparation.', '#8b5cf6')
-ON CONFLICT (id) DO NOTHING;
-
+-- Admin Teacher Account Only
 INSERT INTO users (id, name, email, password, role, title, avatar)
 VALUES
-  ('teacher-1', 'Dr. Alistair Vance, Ph.D.', 'teacher@edupro.org', 'admin123', 'teacher', 'Head of Pure Sciences & Lead LMS Administrator', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'),
-  ('std-demo', 'Samantha Perera', 'student@edupro.org', 'student123', 'student', 'Student Scholar', 'https://api.dicebear.com/7.x/adventurer/svg?seed=student1')
+  ('teacher-1', 'Dr. Alistair Vance, Ph.D.', 'teacher@edupro.org', 'admin123', 'teacher', 'Head of Pure Sciences & Lead LMS Administrator', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80')
 ON CONFLICT (id) DO NOTHING;

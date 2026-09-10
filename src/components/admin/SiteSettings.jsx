@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard, Database } from 'lucide-react';
+import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard, Database, Trash2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
-import { initializeStorage, storage, STORAGE_KEYS } from '../../services/storageService';
+import { initializeStorage, storage, STORAGE_KEYS, clearAllDemoData } from '../../services/storageService';
 import { ImageUpload } from '../common/ImageUpload';
 
 export const SiteSettings = () => {
@@ -115,6 +115,15 @@ export const SiteSettings = () => {
     initializeStorage();
     refreshAll();
     showToast('Reset to factory demo database', 'info');
+  };
+
+  const handleClearAllDemoData = () => {
+    if (!window.confirm('Delete all demo classes, lessons, subjects, grades, and demo students? (Your Admin Teacher account will NOT be deleted)')) {
+      return;
+    }
+    clearAllDemoData();
+    refreshAll();
+    showToast('All demo data removed! Clean academy slate ready.', 'success');
   };
 
   return (
@@ -373,6 +382,10 @@ export const SiteSettings = () => {
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '1.5rem 0' }}>
           <button onClick={handleExportData} className="btn btn-primary">
             <Download size={16} /> Export Complete JSON Database
+          </button>
+
+          <button onClick={handleClearAllDemoData} className="btn btn-danger">
+            <Trash2 size={16} /> Clear All Demo Data (Keep Admin Only)
           </button>
 
           <button onClick={handleResetFactoryDefaults} className="btn btn-secondary">

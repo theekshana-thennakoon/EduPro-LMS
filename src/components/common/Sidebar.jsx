@@ -123,6 +123,14 @@ export const Sidebar = ({ currentView, onViewChange, isOpen, onClose, onNeedAuth
               </div>
 
               <div
+                className={`sidebar-link ${currentView === 'admin-teachers' ? 'active' : ''}`}
+                onClick={() => handleNavClick('admin-teachers')}
+              >
+                <GraduationCap size={18} />
+                <span>Faculty & Teachers</span>
+              </div>
+
+              <div
                 className={`sidebar-link ${currentView === 'admin-payments' ? 'active' : ''}`}
                 onClick={() => handleNavClick('admin-payments')}
               >

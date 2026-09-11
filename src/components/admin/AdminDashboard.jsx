@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, BookOpen, Film, Users, DollarSign, PlusCircle, ArrowUpRight, TrendingUp, Award } from 'lucide-react';
+import { Layers, BookOpen, Film, Users, DollarSign, PlusCircle, ArrowUpRight, TrendingUp, Award, GraduationCap } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 
 export const AdminDashboard = ({ onNavigate, onSelectClassForLessons }) => {
   const { subjects, grades, classes, payments, settings } = useLms();
   const [students, setStudents] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [lessonsCount, setLessonsCount] = useState(0);
 
   useEffect(() => {
     const fetchAdminStats = async () => {
-      const stds = await lmsService.getAllStudents();
+      const [stds, tchs] = await Promise.all([
+        lmsService.getAllStudents(),
+        lmsService.getAllTeachers()
+      ]);
       setStudents(stds);
+      setTeachers(tchs);
 
       let totalLes = 0;
       for (const c of classes) {
@@ -47,7 +52,7 @@ export const AdminDashboard = ({ onNavigate, onSelectClassForLessons }) => {
             Teacher Administration & Curriculum Portal
           </h1>
           <p style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>
-            Welcome, Professor Wright. Manage subjects, create educational grades/levels, launch classes, attach multi-video lessons, build interactive quizzes, and control student access permissions.
+            Welcome to the faculty management and course administration center. Manage curriculum subjects, create educational tiers, launch classes, assign faculty instructors, attach lessons & quizzes, and manage permissions.
           </p>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
@@ -68,6 +73,12 @@ export const AdminDashboard = ({ onNavigate, onSelectClassForLessons }) => {
               className="btn btn-secondary btn-sm"
             >
               <PlusCircle size={16} /> New Class
+            </button>
+            <button
+              onClick={() => onNavigate('admin-teachers')}
+              className="btn btn-secondary btn-sm"
+            >
+              <GraduationCap size={16} /> Faculty Teachers
             </button>
             <button
               onClick={() => onNavigate('admin-lessons')}
@@ -120,6 +131,16 @@ export const AdminDashboard = ({ onNavigate, onSelectClassForLessons }) => {
           <div>
             <div className="stat-value">{classes.length}</div>
             <div className="stat-label">Active Classes</div>
+          </div>
+        </div>
+
+        <div className="glass-card stat-card" onClick={() => onNavigate('admin-teachers')} style={{ cursor: 'pointer' }}>
+          <div className="stat-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+            <GraduationCap size={26} />
+          </div>
+          <div>
+            <div className="stat-value">{teachers.length}</div>
+            <div className="stat-label">Faculty Teachers</div>
           </div>
         </div>
 

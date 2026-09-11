@@ -139,27 +139,43 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_attempts ENABLE ROW LEVEL SECURITY;
 
 -- Create Open Public Access Policies (for rapid deployment with anon key)
+DROP POLICY IF EXISTS "Public read site_settings" ON site_settings;
+DROP POLICY IF EXISTS "Public write site_settings" ON site_settings;
 CREATE POLICY "Public read site_settings" ON site_settings FOR SELECT USING (true);
 CREATE POLICY "Public write site_settings" ON site_settings FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read subjects" ON subjects;
+DROP POLICY IF EXISTS "Public write subjects" ON subjects;
 CREATE POLICY "Public read subjects" ON subjects FOR SELECT USING (true);
 CREATE POLICY "Public write subjects" ON subjects FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read grades" ON grades;
+DROP POLICY IF EXISTS "Public write grades" ON grades;
 CREATE POLICY "Public read grades" ON grades FOR SELECT USING (true);
 CREATE POLICY "Public write grades" ON grades FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read classes" ON classes;
+DROP POLICY IF EXISTS "Public write classes" ON classes;
 CREATE POLICY "Public read classes" ON classes FOR SELECT USING (true);
 CREATE POLICY "Public write classes" ON classes FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read lessons" ON lessons;
+DROP POLICY IF EXISTS "Public write lessons" ON lessons;
 CREATE POLICY "Public read lessons" ON lessons FOR SELECT USING (true);
 CREATE POLICY "Public write lessons" ON lessons FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read users" ON users;
+DROP POLICY IF EXISTS "Public write users" ON users;
 CREATE POLICY "Public read users" ON users FOR SELECT USING (true);
 CREATE POLICY "Public write users" ON users FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read payments" ON payments;
+DROP POLICY IF EXISTS "Public write payments" ON payments;
 CREATE POLICY "Public read payments" ON payments FOR SELECT USING (true);
 CREATE POLICY "Public write payments" ON payments FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Public read quiz_attempts" ON quiz_attempts;
+DROP POLICY IF EXISTS "Public write quiz_attempts" ON quiz_attempts;
 CREATE POLICY "Public read quiz_attempts" ON quiz_attempts FOR SELECT USING (true);
 CREATE POLICY "Public write quiz_attempts" ON quiz_attempts FOR ALL USING (true);
 

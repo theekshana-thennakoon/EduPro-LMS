@@ -1387,6 +1387,150 @@ export const lmsService = {
     return users.filter((u) => u.role === 'student');
   },
 
+  // ================= TEACHERS / FACULTY MANAGEMENT =================
+  getAllTeachers: async () => {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'teacher')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Supabase getAllTeachers error:', error);
+        } else if (data) {
+          const mapped = data.map(mapUserFromDb);
+          return mapped;
+        }
+      } catch (err) {
+        console.warn('Supabase getAllTeachers failed, using storage cache:', err);
+      }
+    }
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    return users.filter((u) => u.role === 'teacher');
+  },
+
+  createTeacher: async (teacherData) => {
+    const newTeacher = {
+      id: `teacher-${Date.now()}`,
+      name: teacherData.name.trim(),
+      email: teacherData.email.trim().toLowerCase(),
+      password: teacherData.password || 'teacher123',
+      role: 'teacher',
+      title: teacherData.title ? teacherData.title.trim() : 'Faculty Instructor',
+      phone: teacherData.phone ? teacherData.phone.trim() : '',
+      bio: teacherData.bio ? teacherData.bio.trim() : '',
+      avatar: teacherData.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      grade: 'Faculty',
+      joinedDate: new Date().toISOString().split('T')[0],
+      enrolledClassIds: [],
+      completedLessonIds: []
+    };
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const dbPayload = mapUserToDb(newTeacher);
+        let { error } = await supabase.from('users').insert(dbPayload);
+
+        // If bio column does not exist on remote db, retry without bio
+        if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('bio')))) {
+          const { bio, ...safePayload } = dbPayload;
+          const retry = await supabase.from('users').insert(safePayload);
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('Supabase createTeacher error:', error);
+          throw new Error(error.message || 'Failed to create teacher account in database');
+        }
+      } catch (err) {
+        console.error('Error inserting teacher in Supabase:', err);
+        throw err;
+      }
+    }
+
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    users.push(newTeacher);
+    storage.set(STORAGE_KEYS.USERS, users);
+    return newTeacher;
+  },
+
+  updateTeacher: async (id, data) => {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const dbPayload = {};
+        if (data.name !== undefined) dbPayload.name = data.name.trim();
+        if (data.email !== undefined) dbPayload.email = data.email.trim().toLowerCase();
+        if (data.password !== undefined && data.password) dbPayload.password = data.password;
+        if (data.title !== undefined) dbPayload.title = data.title.trim();
+        if (data.phone !== undefined) dbPayload.phone = data.phone.trim();
+        if (data.avatar !== undefined) dbPayload.avatar = data.avatar.trim();
+        if (data.bio !== undefined) dbPayload.bio = data.bio.trim();
+
+        let { error } = await supabase
+          .from('users')
+          .update(dbPayload)
+          .eq('id', id);
+
+        if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('bio')))) {
+          const { bio, ...safePayload } = dbPayload;
+          const retry = await supabase
+            .from('users')
+            .update(safePayload)
+            .eq('id', id);
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('Supabase updateTeacher error:', error);
+          throw new Error(error.message || 'Failed to update teacher in database');
+        }
+      } catch (err) {
+        console.error('Error updating teacher in Supabase:', err);
+        throw err;
+      }
+    }
+
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    const index = users.findIndex((u) => u.id === id);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...data };
+      storage.set(STORAGE_KEYS.USERS, users);
+
+      const currentUser = storage.get(STORAGE_KEYS.CURRENT_USER);
+      if (currentUser && currentUser.id === id) {
+        storage.set(STORAGE_KEYS.CURRENT_USER, users[index]);
+      }
+      return users[index];
+    }
+    return { id, ...data };
+  },
+
+  deleteTeacher: async (id) => {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('Supabase deleteTeacher error:', error);
+          throw new Error(error.message || 'Failed to delete teacher from database');
+        }
+      } catch (err) {
+        console.error('Error deleting teacher in Supabase:', err);
+        throw err;
+      }
+    }
+
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    const filtered = users.filter((u) => u.id !== id);
+    storage.set(STORAGE_KEYS.USERS, filtered);
+    return true;
+  },
+
   // ================= DATA EXPORT & IMPORT =================
   exportDatabaseJSON: () => {
     const dump = {

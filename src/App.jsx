@@ -15,6 +15,7 @@ import { ClassManager } from './components/admin/ClassManager';
 import { LessonManager } from './components/admin/LessonManager';
 import { SiteSettings } from './components/admin/SiteSettings';
 import { StudentManager } from './components/admin/StudentManager';
+import { TeacherManager } from './components/admin/TeacherManager';
 import { PaymentManager } from './components/admin/PaymentManager';
 import { AdminProfileView } from './components/admin/AdminProfileView';
 
@@ -169,6 +170,14 @@ export const App = () => {
 
           {isTeacher && currentView === 'admin-students' && (
             <StudentManager />
+          )}
+
+          {isTeacher && currentView === 'admin-teachers' && (
+            <TeacherManager
+              onSelectTeacherForClasses={(teacherName) => {
+                setCurrentView('admin-classes');
+              }}
+            />
           )}
 
           {isTeacher && currentView === 'admin-payments' && (

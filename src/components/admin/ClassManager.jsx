@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Film, Layers, DollarSign, Calendar, Users, ArrowUpRight, BookOpen, Award } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Film, Layers, DollarSign, Calendar, Users, ArrowUpRight, BookOpen, Award, GraduationCap } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { Modal } from '../common/Modal';
@@ -12,6 +12,7 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
   const [activeGradeFilter, setActiveGradeFilter] = useState(selectedGradeName || 'all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
+  const [teachers, setTeachers] = useState([]);
 
   // Form states
   const [subjectId, setSubjectId] = useState('');
@@ -24,6 +25,18 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
   const [capacity, setCapacity] = useState('100');
   const [thumbnail, setThumbnail] = useState('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&auto=format&fit=crop&q=80');
   const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    const loadTeachers = async () => {
+      try {
+        const list = await lmsService.getAllTeachers();
+        setTeachers(list);
+      } catch (err) {
+        console.warn('Error fetching teachers for class manager:', err);
+      }
+    };
+    loadTeachers();
+  }, [modalOpen]);
 
   const filteredClasses = classes.filter((c) => {
     const matchesSubject = activeSubjectFilter === 'all' || c.subjectId === activeSubjectFilter;
@@ -439,12 +452,31 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
 
             <div className="form-group">
               <label className="form-label">Lead Instructor</label>
-              <input
-                type="text"
-                className="form-control"
-                value={instructor}
-                onChange={(e) => setInstructor(e.target.value)}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Prof. Alexander Wright"
+                  value={instructor}
+                  onChange={(e) => setInstructor(e.target.value)}
+                />
+                {teachers.length > 0 && (
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Quick Select:</span>
+                    {teachers.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setInstructor(t.name)}
+                        className="badge badge-outline"
+                        style={{ cursor: 'pointer', fontSize: '0.7rem' }}
+                      >
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

@@ -20,7 +20,10 @@ import {
   Shield,
   ShieldAlert,
   EyeOff,
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  List,
+  BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
@@ -50,6 +53,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   const [markingCompleted, setMarkingCompleted] = useState(false);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [downloadingNoteId, setDownloadingNoteId] = useState(null);
+  const [mobileSyllabusOpen, setMobileSyllabusOpen] = useState(false);
 
   // Quiz state
   const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -397,20 +401,23 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   // ================= ENROLLED CLASSROOM VIEW =================
   const isVideoInWatchLater = activeVideo ? watchLaterList.some((v) => v.id === activeVideo.id) : false;
   const isLessonCompleted = currentUser?.completedLessonIds?.includes(activeLesson?.id);
+  const currentLessonIndex = lessons.findIndex((l) => l.id === activeLesson?.id);
+  const prevLesson = currentLessonIndex > 0 ? lessons[currentLessonIndex - 1] : null;
+  const nextLesson = currentLessonIndex >= 0 && currentLessonIndex < lessons.length - 1 ? lessons[currentLessonIndex + 1] : null;
 
   return (
     <div>
-      {/* Top Header & Breadcrumb */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button onClick={onBack} className="btn btn-secondary btn-sm">
+      {/* Responsive Top Header & Breadcrumbs */}
+      <div className="classroom-top-header">
+        <div className="classroom-title-group">
+          <button onClick={onBack} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
             <ArrowLeft size={16} /> Courses
           </button>
           <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Enrolled Classroom
             </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{currentClass?.title}</h1>
+            <h1 className="classroom-course-title">{currentClass?.title}</h1>
           </div>
         </div>
 
@@ -419,6 +426,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
             onClick={handleMarkCompleted}
             className={`btn btn-sm ${isLessonCompleted ? 'btn-secondary' : 'btn-primary'}`}
             disabled={markingCompleted}
+            style={{ flexShrink: 0 }}
           >
             {markingCompleted ? (
               <>
@@ -428,12 +436,96 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
             ) : (
               <>
                 <CheckCircle size={16} color={isLessonCompleted ? 'var(--success)' : 'inherit'} />
-                <span>{isLessonCompleted ? 'Completed' : 'Mark Lesson Completed'}</span>
+                <span>{isLessonCompleted ? 'Lesson Completed' : 'Mark Completed'}</span>
               </>
             )}
           </button>
         )}
       </div>
+
+      {/* Quick Module Switcher Navigator Bar (Seamless Mobile Ergonomics) */}
+      {activeLesson && lessons.length > 0 && (
+        <div className="classroom-nav-bar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => prevLesson && handleSelectLesson(prevLesson)}
+              disabled={!prevLesson}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
+              title="Previous Module"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Module {currentLessonIndex + 1} of {lessons.length}
+            </span>
+            <button
+              onClick={() => nextLesson && handleSelectLesson(nextLesson)}
+              disabled={!nextLesson}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
+              title="Next Module"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <button
+            onClick={() => setMobileSyllabusOpen(!mobileSyllabusOpen)}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            <List size={14} color="var(--primary)" /> {mobileSyllabusOpen ? 'Hide Syllabus' : `Syllabus (${lessons.length})`}
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Collapsible Syllabus Accordion (Shown when toggled or on mobile) */}
+      {mobileSyllabusOpen && (
+        <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.25rem', border: '1px solid var(--primary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <BookOpen size={16} color="var(--primary)" /> Quick Syllabus Jump
+            </span>
+            <button onClick={() => setMobileSyllabusOpen(false)} className="btn btn-secondary btn-sm" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>
+              Close
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '50vh', overflowY: 'auto' }}>
+            {lessons.map((les, index) => {
+              const isCurrent = activeLesson?.id === les.id;
+              const isCompleted = currentUser?.completedLessonIds?.includes(les.id);
+              return (
+                <div
+                  key={les.id}
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: isCurrent ? 'var(--primary-light)' : 'var(--bg-tertiary)',
+                    border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                  onClick={() => {
+                    handleSelectLesson(les);
+                    setMobileSyllabusOpen(false);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: isCompleted ? 'var(--success)' : isCurrent ? 'var(--primary)' : 'var(--bg-secondary)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700 }}>
+                      {isCompleted ? '✓' : index + 1}
+                    </span>
+                    <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)' }}>{les.title}</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{les.duration}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Classroom Layout: Grid of Video Player + Lessons Syllabus */}
       <div className="classroom-layout-grid">
@@ -442,7 +534,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
           {activeLesson ? (
             <div>
               {/* Multi-Video Player Container with Screen Recording Protection */}
-              <div className="glass-card protected-player-container" style={{ padding: '1rem', marginBottom: '1.5rem', overflow: 'hidden' }}>
+              <div className="glass-card protected-player-container classroom-player-card">
                 {activeVideo ? (
                   <div>
                     <div className="video-player-wrapper" style={{ position: 'relative' }}>
@@ -506,7 +598,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                       }}
                     >
                       <div>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeVideo.title}</h2>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>{activeVideo.title}</h2>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                           Duration: {activeVideo.duration} • Lesson: {activeLesson.title}
                         </div>
@@ -534,22 +626,22 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
               </div>
 
               {/* Lesson Interactive Studio Tabs: Videos Playlist, Quizzes, Notes */}
-              <div className="glass-card" style={{ padding: '1.5rem' }}>
-                <div className="tabs-header">
+              <div className="glass-card classroom-tabs-card">
+                <div className="classroom-tabs-header">
                   <button
-                    className={`tab-btn ${activeTab === 'video' ? 'active' : ''}`}
+                    className={`classroom-tab-btn ${activeTab === 'video' ? 'active' : ''}`}
                     onClick={() => setActiveTab('video')}
                   >
                     <Play size={16} /> Videos ({activeLesson.videos?.length || 0})
                   </button>
                   <button
-                    className={`tab-btn ${activeTab === 'quiz' ? 'active' : ''}`}
+                    className={`classroom-tab-btn ${activeTab === 'quiz' ? 'active' : ''}`}
                     onClick={() => setActiveTab('quiz')}
                   >
                     <HelpCircle size={16} /> Interactive Quiz ({activeLesson.quizzes?.length || 0})
                   </button>
                   <button
-                    className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`}
+                    className={`classroom-tab-btn ${activeTab === 'notes' ? 'active' : ''}`}
                     onClick={() => setActiveTab('notes')}
                   >
                     <FileText size={16} /> Lecture Notes ({activeLesson.notes?.length || 0})
@@ -943,12 +1035,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                                 <iframe
                                   src={note.pdfUrl}
                                   title={note.title}
-                                  style={{
-                                    width: '100%',
-                                    height: '620px',
-                                    border: 'none',
-                                    display: 'block'
-                                  }}
+                                  className="classroom-pdf-frame"
                                 />
                               </div>
                             )}

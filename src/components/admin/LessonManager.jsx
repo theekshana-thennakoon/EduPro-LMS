@@ -13,7 +13,10 @@ import {
   CheckCircle,
   ExternalLink,
   Upload,
-  Loader2
+  Loader2,
+  Eye,
+  X,
+  FileCheck
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
@@ -78,7 +81,16 @@ export const LessonManager = ({ initialClassId }) => {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteFileName, setNoteFileName] = useState('');
+  const [noteFileSize, setNoteFileSize] = useState('1.2 MB');
+  const [notePdfUrl, setNotePdfUrl] = useState('');
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [pdfUploadType, setPdfUploadType] = useState('file'); // 'file' or 'url'
   const [targetLessonForNote, setTargetLessonForNote] = useState(null);
+
+  // Note PDF preview modal
+  const [pdfPreviewModalOpen, setPdfPreviewModalOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState('');
+  const [previewPdfTitle, setPreviewPdfTitle] = useState('');
 
   // Fetch lessons when class changes
   const fetchLessons = async (classId) => {
@@ -387,6 +399,9 @@ export const LessonManager = ({ initialClassId }) => {
     setNoteTitle('');
     setNoteContent('');
     setNoteFileName('');
+    setNoteFileSize('1.2 MB');
+    setNotePdfUrl('');
+    setPdfUploadType('file');
     setNoteModalOpen(true);
   };
 
@@ -396,7 +411,60 @@ export const LessonManager = ({ initialClassId }) => {
     setNoteTitle(note.title || '');
     setNoteContent(note.content || '');
     setNoteFileName(note.fileName || '');
+    setNoteFileSize(note.fileSize || '1.2 MB');
+    setNotePdfUrl(note.pdfUrl || '');
+    setPdfUploadType(note.pdfUrl?.startsWith('data:') ? 'file' : (note.pdfUrl ? 'url' : 'file'));
     setNoteModalOpen(true);
+  };
+
+  const handlePdfFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      showToast('Please select a valid PDF document (.pdf)', 'error');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      showToast('PDF file exceeds 25MB limit', 'error');
+      return;
+    }
+
+    setUploadingPdf(true);
+    const sizeInMb = file.size / (1024 * 1024);
+    const sizeStr = sizeInMb < 0.1 ? `${(file.size / 1024).toFixed(0)} KB` : `${sizeInMb.toFixed(1)} MB`;
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const base64Data = uploadEvent.target.result;
+      setNotePdfUrl(base64Data);
+      setNoteFileName(file.name);
+      setNoteFileSize(sizeStr);
+      if (!noteTitle) {
+        setNoteTitle(file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '));
+      }
+      setUploadingPdf(false);
+      showToast(`PDF "${file.name}" uploaded & ready to attach!`, 'success');
+    };
+    reader.onerror = () => {
+      setUploadingPdf(false);
+      showToast('Failed to read PDF file', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAttachedPdf = () => {
+    setNotePdfUrl('');
+    setNoteFileName('');
+    setNoteFileSize('1.2 MB');
+    showToast('Attached PDF removed', 'info');
+  };
+
+  const handleOpenPdfPreview = (pdfUrl, title) => {
+    setPreviewPdfUrl(pdfUrl);
+    setPreviewPdfTitle(title || 'PDF Document Preview');
+    setPdfPreviewModalOpen(true);
   };
 
   const handleSaveNote = async (e) => {
@@ -407,22 +475,21 @@ export const LessonManager = ({ initialClassId }) => {
     }
     setSavingNote(true);
     try {
+      const finalFileName = noteFileName.trim() || `${noteTitle.trim().replace(/\s+/g, '_')}.pdf`;
+      const notePayload = {
+        title: noteTitle.trim(),
+        content: noteContent.trim(),
+        fileName: finalFileName,
+        fileSize: noteFileSize || '1.2 MB',
+        pdfUrl: notePdfUrl.trim()
+      };
+
       if (editingNote) {
-        await lmsService.updateNoteInLesson(targetLessonForNote, editingNote.id, {
-          title: noteTitle.trim(),
-          content: noteContent.trim(),
-          fileName: noteFileName.trim() || `${noteTitle.replace(/\s+/g, '_')}.pdf`,
-          fileSize: editingNote.fileSize || '1.2 MB'
-        });
-        showToast('Study notes updated successfully!', 'success');
+        await lmsService.updateNoteInLesson(targetLessonForNote, editingNote.id, notePayload);
+        showToast('Study note and PDF updated successfully!', 'success');
       } else {
-        await lmsService.addNoteToLesson(targetLessonForNote, {
-          title: noteTitle.trim(),
-          content: noteContent.trim(),
-          fileName: noteFileName.trim() || `${noteTitle.replace(/\s+/g, '_')}.pdf`,
-          fileSize: '1.2 MB'
-        });
-        showToast('Lecture notes & attachment saved!', 'success');
+        await lmsService.addNoteToLesson(targetLessonForNote, notePayload);
+        showToast('Lecture note and PDF published successfully!', 'success');
       }
       setNoteModalOpen(false);
       setEditingNote(null);
@@ -936,12 +1003,25 @@ export const LessonManager = ({ initialClassId }) => {
                                     whiteSpace: 'pre-wrap'
                                   }}
                                 >
-                                  {note.content}
+                                  {note.content || '(No additional text synopsis provided)'}
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                  <span>📄 {note.fileName}</span>
-                                  <span>{note.fileSize}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <FileText size={14} color={note.pdfUrl ? '#ef4444' : 'var(--primary)'} />
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{note.fileName}</span>
+                                    <span>({note.fileSize || '1.2 MB'})</span>
+                                  </div>
+                                  {note.pdfUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenPdfPreview(note.pdfUrl, note.title)}
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                    >
+                                      <Eye size={12} /> Preview PDF
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -1458,26 +1538,151 @@ export const LessonManager = ({ initialClassId }) => {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Simulated Attachment File Name</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="e.g. Calculus_Module_Summary.pdf"
-              value={noteFileName}
-              onChange={(e) => setNoteFileName(e.target.value)}
-            />
+          {/* PDF Attachment Section */}
+          <div className="form-group" style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <label className="form-label" style={{ margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <FileText size={16} color="#ef4444" /> Attach PDF Document
+              </label>
+              <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-tertiary)', padding: '0.2rem', borderRadius: 'var(--radius-sm)' }}>
+                <button
+                  type="button"
+                  onClick={() => setPdfUploadType('file')}
+                  className={`btn btn-sm ${pdfUploadType === 'file' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                >
+                  <Upload size={12} /> Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPdfUploadType('url')}
+                  className={`btn btn-sm ${pdfUploadType === 'url' ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}
+                >
+                  <ExternalLink size={12} /> Direct PDF URL
+                </button>
+              </div>
+            </div>
+
+            {notePdfUrl ? (
+              <div style={{ background: 'var(--bg-tertiary)', border: '1px solid rgba(16, 185, 129, 0.4)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem' }}>
+                    PDF
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                      {noteFileName || 'Attached_Document.pdf'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Size: {noteFileSize} &bull; Attached Ready
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPdfPreview(notePdfUrl, noteTitle || noteFileName)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  >
+                    <Eye size={13} /> Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAttachedPdf}
+                    className="btn btn-danger btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {pdfUploadType === 'file' ? (
+                  <div>
+                    <label
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px dashed var(--border-color)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '1.5rem',
+                        cursor: uploadingPdf ? 'wait' : 'pointer',
+                        background: 'var(--bg-tertiary)',
+                        transition: 'border-color 0.2s, background 0.2s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={handlePdfFileUpload}
+                        style={{ display: 'none' }}
+                        disabled={uploadingPdf}
+                      />
+                      {uploadingPdf ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                          <Loader2 size={24} className="animate-spin" color="var(--primary)" />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Encoding PDF Document...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload size={24} color="var(--primary)" style={{ marginBottom: '0.4rem' }} />
+                          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Click or drag a PDF document here</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                            Max file size: 25MB (.pdf format)
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <input
+                      type="url"
+                      className="form-control"
+                      placeholder="https://example.com/handouts/calculus_notes.pdf"
+                      value={notePdfUrl}
+                      onChange={(e) => setNotePdfUrl(e.target.value)}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.5rem' }}>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Document name (e.g. Calculus_Notes.pdf)"
+                        value={noteFileName}
+                        onChange={(e) => setNoteFileName(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Size (e.g. 2.4 MB)"
+                        value={noteFileSize}
+                        onChange={(e) => setNoteFileSize(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="form-group">
-            <label className="form-label">Rich Lecture Notes Content</label>
+            <label className="form-label">
+              Lecture Notes / Summary Content {notePdfUrl ? '(Optional synopsis)' : '*'}
+            </label>
             <textarea
               className="form-control"
-              style={{ minHeight: '160px' }}
-              placeholder="Type lecture notes, definitions, formulas, or markdown summary here..."
+              style={{ minHeight: '120px' }}
+              placeholder="Type lecture summary, key formulas, reference notes, or markdown guide..."
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
-              required
+              required={!notePdfUrl}
             />
           </div>
 
@@ -1493,18 +1698,60 @@ export const LessonManager = ({ initialClassId }) => {
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={savingNote}>
+            <button type="submit" className="btn btn-primary" disabled={savingNote || uploadingPdf}>
               {savingNote ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  <span>{editingNote ? 'Saving Note Changes...' : 'Saving Notes...'}</span>
+                  <span>{editingNote ? 'Saving Changes...' : 'Publishing Note...'}</span>
                 </>
               ) : (
-                editingNote ? 'Save Note Changes' : 'Save Notes'
+                editingNote ? 'Save Note Changes' : 'Publish Study Note'
               )}
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* ================= MODAL: PDF VIEWER PREVIEW ================= */}
+      <Modal
+        isOpen={pdfPreviewModalOpen}
+        onClose={() => setPdfPreviewModalOpen(false)}
+        title={previewPdfTitle || 'PDF Document Viewer'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <FileText size={16} color="#ef4444" /> {previewPdfTitle}
+            </span>
+            <a
+              href={previewPdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem' }}
+            >
+              <ExternalLink size={12} /> Open Fullscreen / New Tab
+            </a>
+          </div>
+
+          <div style={{ width: '100%', height: '550px', background: '#0f172a', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            <iframe
+              src={previewPdfUrl}
+              title={previewPdfTitle}
+              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => setPdfPreviewModalOpen(false)}
+              className="btn btn-secondary"
+            >
+              Close Preview
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -906,7 +906,8 @@ export const lmsService = {
       title: note.title,
       content: note.content || '',
       fileName: note.fileName || 'Lecture_Notes.pdf',
-      fileSize: note.fileSize || '1.2 MB'
+      fileSize: note.fileSize || '1.2 MB',
+      pdfUrl: note.pdfUrl || ''
     };
 
     const updatedNotes = [...(lesson.notes || []), newNote];
@@ -927,7 +928,8 @@ export const lmsService = {
       title: updatedNote.title || notes[nIndex].title,
       content: updatedNote.content !== undefined ? updatedNote.content : notes[nIndex].content,
       fileName: updatedNote.fileName || notes[nIndex].fileName || 'Lecture_Notes.pdf',
-      fileSize: updatedNote.fileSize || notes[nIndex].fileSize || '1.2 MB'
+      fileSize: updatedNote.fileSize || notes[nIndex].fileSize || '1.2 MB',
+      pdfUrl: updatedNote.pdfUrl !== undefined ? updatedNote.pdfUrl : (notes[nIndex].pdfUrl || '')
     };
 
     await lmsService.updateLesson(lessonId, { notes });

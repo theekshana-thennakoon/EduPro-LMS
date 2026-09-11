@@ -19,7 +19,8 @@ import {
   Loader2,
   Shield,
   ShieldAlert,
-  EyeOff
+  EyeOff,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
@@ -48,6 +49,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   // Action loaders
   const [markingCompleted, setMarkingCompleted] = useState(false);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
+  const [downloadingNoteId, setDownloadingNoteId] = useState(null);
 
   // Quiz state
   const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -217,16 +219,46 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
     setQuizScore(0);
   };
 
-  // Simulated download for notes
+  // Real PDF & Lecture notes download handler
   const handleDownloadNotes = (note) => {
-    const element = document.createElement('a');
-    const file = new Blob([`# ${note.title}\n\n${note.content}`], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = note.fileName || 'Lecture_Notes.txt';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    showToast(`Downloading "${note.fileName || 'notes'}"...`, 'success');
+    setDownloadingNoteId(note.id);
+    try {
+      if (note.pdfUrl && note.pdfUrl.startsWith('data:')) {
+        // Base64 Data URL -> download binary PDF directly
+        const link = document.createElement('a');
+        link.href = note.pdfUrl;
+        link.download = note.fileName || `${note.title.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Downloaded "${link.download}"`, 'success');
+      } else if (note.pdfUrl && note.pdfUrl.startsWith('http')) {
+        // Direct Web URL -> open / download in new tab
+        const link = document.createElement('a');
+        link.href = note.pdfUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.download = note.fileName || 'Lecture_Notes.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Opening / Downloading "${note.fileName || 'notes'}"...`, 'success');
+      } else {
+        // Plain text fallback
+        const file = new Blob([`# ${note.title}\n\n${note.content || ''}`], { type: 'text/plain' });
+        const element = document.createElement('a');
+        element.href = URL.createObjectURL(file);
+        element.download = note.fileName || `${note.title.replace(/\s+/g, '_')}.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        showToast(`Downloaded "${element.download}"`, 'success');
+      }
+    } catch (err) {
+      showToast('Failed to download note attachment', 'error');
+    } finally {
+      setTimeout(() => setDownloadingNoteId(null), 800);
+    }
   };
 
   // ================= STRICT ENROLLMENT GUARD =================
@@ -763,46 +795,163 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                 {/* TAB 3: STUDY NOTES & DOWNLOADS */}
                 {activeTab === 'notes' && (
                   <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-                      Lecture Notes & Downloadable Handouts
-                    </h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
+                          Lecture Notes & PDF Study Handouts
+                        </h3>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
+                          Read study materials online or download documents for offline review.
+                        </p>
+                      </div>
+                    </div>
 
                     {(!activeLesson.notes || activeLesson.notes.length === 0) ? (
-                      <p style={{ color: 'var(--text-muted)' }}>No study notes posted for this lesson.</p>
+                      <div className="glass-card" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                        <FileText size={36} color="var(--text-muted)" style={{ margin: '0 auto 0.75rem' }} />
+                        <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>No Study Materials Posted Yet</h4>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>The instructor has not uploaded lecture notes or PDFs for this module.</p>
+                      </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {activeLesson.notes.map((note) => (
                           <div
                             key={note.id}
                             style={{
                               background: 'var(--bg-tertiary)',
-                              padding: '1.25rem',
+                              padding: '1.5rem',
                               borderRadius: 'var(--radius-md)',
-                              border: '1px solid var(--border-color)'
+                              border: '1px solid var(--border-color)',
+                              boxShadow: 'var(--shadow-sm)'
                             }}
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{note.title}</h4>
-                              <button
-                                onClick={() => handleDownloadNotes(note)}
-                                className="btn btn-secondary btn-sm"
-                              >
-                                <Download size={14} /> Download {note.fileName}
-                              </button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div
+                                  style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '8px',
+                                    background: note.pdfUrl ? 'rgba(239, 68, 68, 0.15)' : 'rgba(79, 70, 229, 0.15)',
+                                    color: note.pdfUrl ? '#ef4444' : 'var(--primary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 800,
+                                    fontSize: '0.85rem',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  {note.pdfUrl ? 'PDF' : <FileText size={20} />}
+                                </div>
+                                <div>
+                                  <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>{note.title}</h4>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{note.fileName}</span>
+                                    <span>&bull;</span>
+                                    <span>{note.fileSize || '1.2 MB'}</span>
+                                    {note.pdfUrl && (
+                                      <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)', padding: '0.1rem 0.5rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                        Verified PDF Document
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                {note.pdfUrl && (
+                                  <a
+                                    href={note.pdfUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-secondary btn-sm"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                    title="Open PDF in new tab"
+                                  >
+                                    <ExternalLink size={14} /> Fullscreen
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => handleDownloadNotes(note)}
+                                  className="btn btn-primary btn-sm"
+                                  disabled={downloadingNoteId === note.id}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                >
+                                  {downloadingNoteId === note.id ? (
+                                    <>
+                                      <Loader2 size={14} className="animate-spin" /> Downloading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download size={14} /> Download {note.pdfUrl ? 'PDF' : 'Notes'}
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </div>
 
-                            <div
-                              style={{
-                                background: 'var(--bg-secondary)',
-                                padding: '1.25rem',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: '0.9rem',
-                                lineHeight: '1.7',
-                                whiteSpace: 'pre-wrap'
-                              }}
-                            >
-                              {note.content}
-                            </div>
+                            {/* Synopsis / Textual Notes */}
+                            {note.content && (
+                              <div
+                                style={{
+                                  background: 'var(--bg-secondary)',
+                                  padding: '1.25rem',
+                                  borderRadius: 'var(--radius-sm)',
+                                  fontSize: '0.92rem',
+                                  lineHeight: '1.7',
+                                  whiteSpace: 'pre-wrap',
+                                  marginBottom: note.pdfUrl ? '1.25rem' : 0,
+                                  border: '1px solid var(--border-color)'
+                                }}
+                              >
+                                {note.content}
+                              </div>
+                            )}
+
+                            {/* Embedded Interactive PDF Viewer */}
+                            {note.pdfUrl && (
+                              <div
+                                style={{
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 'var(--radius-md)',
+                                  overflow: 'hidden',
+                                  background: '#0f172a'
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    padding: '0.65rem 1rem',
+                                    background: 'var(--bg-secondary)',
+                                    borderBottom: '1px solid var(--border-color)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    fontSize: '0.82rem',
+                                    color: 'var(--text-secondary)',
+                                    flexWrap: 'wrap',
+                                    gap: '0.5rem'
+                                  }}
+                                >
+                                  <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                    <FileText size={15} color="#ef4444" /> Interactive PDF Viewer: {note.fileName}
+                                  </span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Scroll, zoom, and print directly within the viewer
+                                  </span>
+                                </div>
+                                <iframe
+                                  src={note.pdfUrl}
+                                  title={note.title}
+                                  style={{
+                                    width: '100%',
+                                    height: '620px',
+                                    border: 'none',
+                                    display: 'block'
+                                  }}
+                                />
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

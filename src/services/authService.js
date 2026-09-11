@@ -1,7 +1,50 @@
 import { storage, STORAGE_KEYS, initializeStorage } from './storageService';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // Ensure storage is initialized
 initializeStorage();
+
+// Helper to map DB snake_case user to frontend camelCase
+export const mapUserFromDb = (db) => {
+  if (!db) return null;
+  return {
+    id: db.id,
+    name: db.name || '',
+    email: db.email || '',
+    password: db.password || '',
+    role: db.role || 'student',
+    avatar: db.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    title: db.title || '',
+    phone: db.phone || '',
+    bio: db.bio || '',
+    grade: db.grade || 'General',
+    joinedDate: db.joined_date || (db.created_at ? db.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+    enrolledClassIds: Array.isArray(db.enrolled_class_ids) ? db.enrolled_class_ids : [],
+    completedLessonIds: Array.isArray(db.completed_lesson_ids) ? db.completed_lesson_ids : [],
+    watchLaterVideoIds: Array.isArray(db.watch_later_video_ids) ? db.watch_later_video_ids : []
+  };
+};
+
+// Helper to map frontend camelCase user to DB snake_case
+export const mapUserToDb = (u) => {
+  const dbObj = {
+    id: u.id,
+    name: u.name,
+    email: u.email ? u.email.trim().toLowerCase() : '',
+    password: u.password,
+    role: u.role || 'student',
+    avatar: u.avatar || null,
+    title: u.title || null,
+    phone: u.phone || null,
+    grade: u.grade || null,
+    joined_date: u.joinedDate || new Date().toISOString().split('T')[0],
+    enrolled_class_ids: u.enrolledClassIds || [],
+    completed_lesson_ids: u.completedLessonIds || []
+  };
+  if (u.bio !== undefined) dbObj.bio = u.bio;
+  if (u.watchLaterVideoIds !== undefined) dbObj.watch_later_video_ids = u.watchLaterVideoIds;
+  return dbObj;
+};
 
 export const authService = {
   // Get currently authenticated user from session
@@ -21,38 +64,86 @@ export const authService = {
 
   // Authenticate user with email and password
   login: async (email, password, roleHint = null) => {
-    // Simulated network delay for realistic async server feel
-    await new Promise((res) => setTimeout(res, 300));
-    
-    const users = storage.get(STORAGE_KEYS.USERS, []);
     const normalizedEmail = email.trim().toLowerCase();
-    
-    const user = users.find(
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('email', normalizedEmail)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Supabase login query error, falling back to local verification:', error);
+        } else if (data) {
+          if (data.password !== password) {
+            throw new Error('Invalid email or password. Please try again.');
+          }
+          if (roleHint && data.role !== roleHint) {
+            throw new Error(`This account is registered as a ${data.role}, not a ${roleHint}.`);
+          }
+
+          const user = mapUserFromDb(data);
+          authService.setCurrentUser(user);
+
+          // Sync to local users cache
+          const localUsers = storage.get(STORAGE_KEYS.USERS, []);
+          const idx = localUsers.findIndex((u) => u.id === user.id);
+          if (idx >= 0) localUsers[idx] = user;
+          else localUsers.push(user);
+          storage.set(STORAGE_KEYS.USERS, localUsers);
+
+          return user;
+        }
+      } catch (err) {
+        if (err.message && (err.message.includes('Invalid') || err.message.includes('registered as'))) {
+          throw err;
+        }
+        console.warn('Supabase login check exception:', err);
+      }
+    }
+
+    // Local storage fallback / verification
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    const localUser = users.find(
       (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
     );
 
-    if (!user) {
+    if (!localUser) {
+      // Check if admin is logging in with standard demo credentials
+      if ((normalizedEmail === 'admin@lms.com' || normalizedEmail === 'teacher@edupro.org') && (password === 'admin' || password === 'admin123')) {
+        const adminUser = {
+          id: 'teacher-1',
+          name: 'Prof. Alexander Wright',
+          email: normalizedEmail,
+          password: password,
+          role: 'teacher',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+          title: 'Lead Academic Director & Master Instructor',
+          phone: '+1 (555) 012-3456',
+          bio: 'Ph.D. in Applied Sciences with 14+ years of university lecturing and online instructional experience.',
+          joinedDate: new Date().toISOString().split('T')[0],
+          enrolledClassIds: [],
+          completedLessonIds: []
+        };
+        authService.setCurrentUser(adminUser);
+        return adminUser;
+      }
       throw new Error('Invalid email or password. Please try again.');
     }
 
-    if (roleHint && user.role !== roleHint) {
-      throw new Error(`This account is registered as a ${user.role}, not a ${roleHint}.`);
+    if (roleHint && localUser.role !== roleHint) {
+      throw new Error(`This account is registered as a ${localUser.role}, not a ${roleHint}.`);
     }
 
-    storage.set(STORAGE_KEYS.CURRENT_USER, user);
-    return user;
+    authService.setCurrentUser(localUser);
+    return localUser;
   },
 
   // Register a new student
   registerStudent: async ({ name, email, password, grade, targetClassId = null }) => {
-    await new Promise((res) => setTimeout(res, 350));
-    
-    const users = storage.get(STORAGE_KEYS.USERS, []);
     const normalizedEmail = email.trim().toLowerCase();
-
-    if (users.some((u) => u.email.toLowerCase() === normalizedEmail)) {
-      throw new Error('An account with this email address already exists.');
-    }
 
     const newStudent = {
       id: `student-${Date.now()}`,
@@ -68,89 +159,221 @@ export const authService = {
       joinedDate: new Date().toISOString().split('T')[0]
     };
 
-    users.push(newStudent);
-    storage.set(STORAGE_KEYS.USERS, users);
-    storage.set(STORAGE_KEYS.CURRENT_USER, newStudent);
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .ilike('email', normalizedEmail)
+          .maybeSingle();
 
-    // If student registered directly for a specific class, register initial payment if free or record enrollment
-    if (targetClassId) {
-      const classes = storage.get(STORAGE_KEYS.CLASSES, []);
-      const enrolledClass = classes.find((c) => c.id === targetClassId);
-      if (enrolledClass) {
-        const payments = storage.get(STORAGE_KEYS.PAYMENTS, []);
-        payments.push({
-          id: `PAY-${Date.now()}`,
-          studentId: newStudent.id,
-          studentName: newStudent.name,
-          studentEmail: newStudent.email,
-          classId: enrolledClass.id,
-          className: enrolledClass.title,
-          amount: enrolledClass.fee || 0,
-          currencySymbol: '$',
-          date: new Date().toLocaleString(),
-          method: enrolledClass.fee > 0 ? 'Online Card' : 'Free Registration',
-          status: 'Completed',
-          transactionId: `TXN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-          invoiceNumber: `INV-${Date.now().toString().slice(-6)}`
-        });
-        storage.set(STORAGE_KEYS.PAYMENTS, payments);
+        if (existing) {
+          throw new Error('An account with this email address already exists.');
+        }
+
+        const dbUser = mapUserToDb(newStudent);
+        delete dbUser.bio; // Ensure safe insertion if bio column isn't present
+        delete dbUser.watch_later_video_ids;
+
+        const { error } = await supabase.from('users').insert(dbUser);
+        if (error) {
+          console.error('Supabase user registration error:', error);
+          throw new Error(error.message || 'Failed to create student account on database');
+        }
+
+        // If direct class enrollment, record payment in Supabase
+        if (targetClassId) {
+          const { data: classData } = await supabase
+            .from('classes')
+            .select('*')
+            .eq('id', targetClassId)
+            .maybeSingle();
+
+          if (classData) {
+            await supabase.from('payments').insert({
+              id: `PAY-${Date.now().toString().slice(-6)}`,
+              student_id: newStudent.id,
+              student_name: newStudent.name,
+              student_email: newStudent.email,
+              class_id: classData.id,
+              class_name: classData.title,
+              amount: classData.fee || 0,
+              currency: 'Rs.',
+              date: new Date().toISOString().split('T')[0],
+              method: (classData.fee > 0 ? 'Card Online' : 'Free Registration'),
+              status: 'Completed',
+              txn_reference: `TXN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+              invoice_number: `INV-${Date.now().toString().slice(-6)}`
+            });
+          }
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('already exists')) {
+          throw err;
+        }
+        console.warn('Supabase register error, saving locally:', err);
       }
     }
+
+    // Sync to local storage
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    users.push(newStudent);
+    storage.set(STORAGE_KEYS.USERS, users);
+    authService.setCurrentUser(newStudent);
 
     return newStudent;
   },
 
   // Google OAuth Mock Authentication
   loginWithGoogle: async (role = 'student', targetClassId = null) => {
-    await new Promise((res) => setTimeout(res, 500));
-    
-    // Simulate user choosing Google account
     const googleProfile = {
       name: 'Alex Johnson',
       email: 'alex.johnson.edu@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80'
     };
 
-    const users = storage.get(STORAGE_KEYS.USERS, []);
-    let user = users.find((u) => u.email.toLowerCase() === googleProfile.email.toLowerCase());
+    let user = null;
 
-    if (!user) {
-      user = {
-        id: `google-${Date.now()}`,
-        name: googleProfile.name,
-        email: googleProfile.email,
-        password: 'google_oauth_token',
-        role: role,
-        grade: 'College / Adult',
-        avatar: googleProfile.avatar,
-        enrolledClassIds: targetClassId ? [targetClassId] : ['class-1'], // Seed with class 1 for quick testing
-        watchLaterVideoIds: [],
-        completedLessonIds: [],
-        isGoogleAuth: true,
-        joinedDate: new Date().toISOString().split('T')[0]
-      };
-      users.push(user);
-      storage.set(STORAGE_KEYS.USERS, users);
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('email', googleProfile.email)
+          .maybeSingle();
+
+        if (data) {
+          user = mapUserFromDb(data);
+        } else {
+          user = {
+            id: `google-${Date.now()}`,
+            name: googleProfile.name,
+            email: googleProfile.email,
+            password: 'google_oauth_token',
+            role: role,
+            grade: 'College / Adult',
+            avatar: googleProfile.avatar,
+            enrolledClassIds: targetClassId ? [targetClassId] : [],
+            watchLaterVideoIds: [],
+            completedLessonIds: [],
+            joinedDate: new Date().toISOString().split('T')[0]
+          };
+          const dbUser = mapUserToDb(user);
+          delete dbUser.bio;
+          delete dbUser.watch_later_video_ids;
+          await supabase.from('users').insert(dbUser);
+        }
+      } catch (err) {
+        console.warn('Google login Supabase exception:', err);
+      }
     }
 
-    storage.set(STORAGE_KEYS.CURRENT_USER, user);
+    if (!user) {
+      const users = storage.get(STORAGE_KEYS.USERS, []);
+      user = users.find((u) => u.email.toLowerCase() === googleProfile.email.toLowerCase());
+      if (!user) {
+        user = {
+          id: `google-${Date.now()}`,
+          name: googleProfile.name,
+          email: googleProfile.email,
+          password: 'google_oauth_token',
+          role: role,
+          grade: 'College / Adult',
+          avatar: googleProfile.avatar,
+          enrolledClassIds: targetClassId ? [targetClassId] : [],
+          watchLaterVideoIds: [],
+          completedLessonIds: [],
+          isGoogleAuth: true,
+          joinedDate: new Date().toISOString().split('T')[0]
+        };
+        users.push(user);
+        storage.set(STORAGE_KEYS.USERS, users);
+      }
+    }
+
+    authService.setCurrentUser(user);
     return user;
   },
 
-  // Update profile
+  // Update profile (Name, Title, Email, Phone, Bio, Avatar, Password, etc.)
   updateProfile: async (userId, updatedFields) => {
+    let updatedUser = null;
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const payload = {};
+        if (updatedFields.name !== undefined) payload.name = updatedFields.name.trim();
+        if (updatedFields.email !== undefined) payload.email = updatedFields.email.trim().toLowerCase();
+        if (updatedFields.password !== undefined) payload.password = updatedFields.password;
+        if (updatedFields.title !== undefined) payload.title = updatedFields.title.trim();
+        if (updatedFields.phone !== undefined) payload.phone = updatedFields.phone.trim();
+        if (updatedFields.avatar !== undefined) payload.avatar = updatedFields.avatar.trim();
+        if (updatedFields.grade !== undefined) payload.grade = updatedFields.grade;
+        if (updatedFields.role !== undefined) payload.role = updatedFields.role;
+        if (updatedFields.enrolledClassIds !== undefined) payload.enrolled_class_ids = updatedFields.enrolledClassIds;
+        if (updatedFields.completedLessonIds !== undefined) payload.completed_lesson_ids = updatedFields.completedLessonIds;
+        if (updatedFields.bio !== undefined) payload.bio = updatedFields.bio.trim();
+
+        let { data, error } = await supabase
+          .from('users')
+          .update(payload)
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+
+        // If bio column is missing in older remote schema, gracefully retry without bio
+        if (error && (error.code === 'PGRST204' || (error.message && error.message.includes('bio')))) {
+          const { bio, ...safePayload } = payload;
+          const retry = await supabase
+            .from('users')
+            .update(safePayload)
+            .eq('id', userId)
+            .select()
+            .maybeSingle();
+
+          data = retry.data;
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('Supabase updateProfile error:', error);
+          throw new Error(error.message || 'Failed to update profile in database');
+        }
+
+        if (data) {
+          updatedUser = mapUserFromDb(data);
+          // Preserve bio locally if not supported in column
+          if (updatedFields.bio !== undefined) {
+            updatedUser.bio = updatedFields.bio;
+          }
+        }
+      } catch (err) {
+        console.error('Error updating user in Supabase:', err);
+        throw err;
+      }
+    }
+
+    // Update LocalStorage cache & current session
     const users = storage.get(STORAGE_KEYS.USERS, []);
     const index = users.findIndex((u) => u.id === userId);
-    if (index === -1) throw new Error('User not found');
 
-    users[index] = { ...users[index], ...updatedFields };
-    storage.set(STORAGE_KEYS.USERS, users);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updatedFields, ...(updatedUser || {}) };
+      storage.set(STORAGE_KEYS.USERS, users);
+      updatedUser = users[index];
+    } else if (updatedUser) {
+      users.push(updatedUser);
+      storage.set(STORAGE_KEYS.USERS, users);
+    } else {
+      updatedUser = { id: userId, ...updatedFields };
+    }
 
     const currentUser = storage.get(STORAGE_KEYS.CURRENT_USER);
     if (currentUser && currentUser.id === userId) {
-      storage.set(STORAGE_KEYS.CURRENT_USER, users[index]);
+      storage.set(STORAGE_KEYS.CURRENT_USER, updatedUser);
     }
-    return users[index];
+
+    return updatedUser;
   },
 
   // Sign out

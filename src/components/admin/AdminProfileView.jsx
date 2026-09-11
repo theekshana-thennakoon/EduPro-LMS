@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Shield, Award, BookOpen, Layers, Save, Key, Lock, CheckCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLms } from '../../context/LmsContext';
@@ -16,6 +16,18 @@ export const AdminProfileView = () => {
   const [bio, setBio] = useState(currentUser?.bio || '');
   const [avatar, setAvatar] = useState(currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
   const [saving, setSaving] = useState(false);
+
+  // Sync state whenever currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.name) setName(currentUser.name);
+      if (currentUser.title) setTitle(currentUser.title);
+      if (currentUser.email) setEmail(currentUser.email);
+      if (currentUser.phone !== undefined) setPhone(currentUser.phone || '');
+      if (currentUser.bio !== undefined) setBio(currentUser.bio || '');
+      if (currentUser.avatar) setAvatar(currentUser.avatar);
+    }
+  }, [currentUser]);
 
   // Security / Password states
   const [currentPassword, setCurrentPassword] = useState('');

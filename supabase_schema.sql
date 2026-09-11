@@ -83,12 +83,20 @@ CREATE TABLE IF NOT EXISTS users (
   avatar TEXT,
   title TEXT,
   phone TEXT,
+  bio TEXT,
   grade TEXT,
   joined_date DATE DEFAULT CURRENT_DATE,
   enrolled_class_ids JSONB DEFAULT '[]'::jsonb,
   completed_lesson_ids JSONB DEFAULT '[]'::jsonb,
+  watch_later_video_ids JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
+
+-- Safe migrations for existing deployments
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS watch_later_video_ids JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT true;
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS theme_mode TEXT DEFAULT 'light';
 
 -- 7. PAYMENTS & TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS payments (

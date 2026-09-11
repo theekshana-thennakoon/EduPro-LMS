@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Film, Layers, DollarSign, Calendar, Users, ArrowUpRight, BookOpen, Award, GraduationCap } from 'lucide-react';
+import { Plus, Edit2, Trash2, Film, Layers, DollarSign, Calendar, Users, ArrowUpRight, BookOpen, Award, GraduationCap, Loader2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { Modal } from '../common/Modal';
@@ -13,6 +13,8 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
   const [modalOpen, setModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [teachers, setTeachers] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form states
   const [subjectId, setSubjectId] = useState('');
@@ -92,6 +94,7 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
       return;
     }
 
+    setSaving(true);
     try {
       if (editingClass) {
         await lmsService.updateClass(editingClass.id, {
@@ -124,6 +127,8 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
       setModalOpen(false);
     } catch (err) {
       showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -131,12 +136,15 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
     if (!window.confirm(`Are you sure you want to delete class "${title}" and all its lessons?`)) {
       return;
     }
+    setDeletingId(id);
     try {
       await lmsService.deleteClass(id);
       showToast('Class deleted', 'info');
       await refreshAll();
     } catch (err) {
       showToast('Failed to delete class', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -317,8 +325,9 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
                           className="btn btn-danger btn-sm"
                           style={{ padding: '0.35rem' }}
                           title="Delete Class"
+                          disabled={deletingId === cls.id}
                         >
-                          <Trash2 size={14} />
+                          {deletingId === cls.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                         </button>
                       </div>
                     </div>
@@ -527,11 +536,18 @@ export const ClassManager = ({ selectedSubjectId, selectedGradeName, onSelectCla
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary" disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingClass ? 'Save Changes' : 'Create Class'}
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingClass ? 'Saving Changes...' : 'Creating Class...'}</span>
+                </>
+              ) : (
+                editingClass ? 'Save Changes' : 'Create Class'
+              )}
             </button>
           </div>
         </form>

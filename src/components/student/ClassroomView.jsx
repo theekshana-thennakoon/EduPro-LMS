@@ -15,7 +15,8 @@ import {
   Award,
   CreditCard,
   RefreshCw,
-  Video
+  Video,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +38,10 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Credit / Debit Card (Stripe)');
   const [enrolling, setEnrolling] = useState(false);
+
+  // Action loaders
+  const [markingCompleted, setMarkingCompleted] = useState(false);
+  const [submittingQuiz, setSubmittingQuiz] = useState(false);
 
   // Quiz state
   const [selectedQuiz, setSelectedQuiz] = useState(null);
@@ -111,8 +116,15 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
 
   const handleMarkCompleted = async () => {
     if (!currentUser || !activeLesson) return;
-    await lmsService.markLessonCompleted(currentUser.id, activeLesson.id);
-    showToast('Lesson marked as completed! Excellent work.', 'success');
+    setMarkingCompleted(true);
+    try {
+      await lmsService.markLessonCompleted(currentUser.id, activeLesson.id);
+      showToast('Lesson marked as completed! Excellent work.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to mark lesson completed', 'error');
+    } finally {
+      setMarkingCompleted(false);
+    }
   };
 
   // Quiz submission & scoring
@@ -138,23 +150,30 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
     const calculatedScore = Math.round((correctCount / questions.length) * 100);
     const passed = calculatedScore >= (selectedQuiz.passingScore || 70);
 
-    setQuizScore(calculatedScore);
-    setQuizPassed(passed);
-    setQuizSubmitted(true);
+    setSubmittingQuiz(true);
+    try {
+      setQuizScore(calculatedScore);
+      setQuizPassed(passed);
+      setQuizSubmitted(true);
 
-    if (currentUser) {
-      await lmsService.submitQuizAttempt(currentUser.id, selectedQuiz.id, classId, calculatedScore, passed);
-    }
+      if (currentUser) {
+        await lmsService.submitQuizAttempt(currentUser.id, selectedQuiz.id, classId, calculatedScore, passed);
+      }
 
-    if (passed) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      showToast(`Congratulations! You passed with ${calculatedScore}%!`, 'success');
-    } else {
-      showToast(`Score: ${calculatedScore}%. Pass mark is ${selectedQuiz.passingScore}%. Try again!`, 'error');
+      if (passed) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        showToast(`Congratulations! You passed with ${calculatedScore}%!`, 'success');
+      } else {
+        showToast(`Score: ${calculatedScore}%. Pass mark is ${selectedQuiz.passingScore}%. Try again!`, 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to submit quiz attempt', 'error');
+    } finally {
+      setSubmittingQuiz(false);
     }
   };
 
@@ -289,11 +308,18 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
             </div>
 
             <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-              <button type="button" onClick={() => setEnrollModalOpen(false)} className="btn btn-secondary">
+              <button type="button" onClick={() => setEnrollModalOpen(false)} className="btn btn-secondary" disabled={enrolling}>
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" disabled={enrolling}>
-                {enrolling ? 'Confirming Admission...' : 'Confirm & Unlock Classroom'}
+                {enrolling ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Confirming Admission...</span>
+                  </>
+                ) : (
+                  'Confirm & Unlock Classroom'
+                )}
               </button>
             </div>
           </form>
@@ -326,9 +352,19 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
           <button
             onClick={handleMarkCompleted}
             className={`btn btn-sm ${isLessonCompleted ? 'btn-secondary' : 'btn-primary'}`}
+            disabled={markingCompleted}
           >
-            <CheckCircle size={16} color={isLessonCompleted ? 'var(--success)' : 'inherit'} />
-            {isLessonCompleted ? 'Completed' : 'Mark Lesson Completed'}
+            {markingCompleted ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Marking...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle size={16} color={isLessonCompleted ? 'var(--success)' : 'inherit'} />
+                <span>{isLessonCompleted ? 'Completed' : 'Mark Lesson Completed'}</span>
+              </>
+            )}
           </button>
         )}
       </div>
@@ -638,9 +674,16 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                             <button
                               onClick={handleQuizSubmit}
                               className="btn btn-primary"
-                              disabled={Object.keys(userAnswers).length === 0}
+                              disabled={submittingQuiz || Object.keys(userAnswers).length === 0}
                             >
-                              Submit Quiz for Evaluation
+                              {submittingQuiz ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  <span>Evaluating Answers...</span>
+                                </>
+                              ) : (
+                                'Submit Quiz for Evaluation'
+                              )}
                             </button>
                           </div>
                         )}

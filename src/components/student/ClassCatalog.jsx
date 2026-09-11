@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Search, Check, Shield, CreditCard, Play, Lock, Award } from 'lucide-react';
+import { BookOpen, Search, Check, Shield, CreditCard, Play, Lock, Award, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLms } from '../../context/LmsContext';
 import { Modal } from '../common/Modal';
@@ -280,11 +280,18 @@ export const ClassCatalog = ({ onOpenClassroom, onNeedAuth }) => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setCheckoutModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setCheckoutModalOpen(false)} className="btn btn-secondary" disabled={processing}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={processing}>
-              {processing ? 'Processing Admission...' : 'Confirm Enrollment & Access'}
+              {processing ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Processing Admission...</span>
+                </>
+              ) : (
+                'Confirm Enrollment & Access'
+              )}
             </button>
           </div>
         </form>

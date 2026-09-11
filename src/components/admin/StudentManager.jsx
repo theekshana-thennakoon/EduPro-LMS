@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Check, X, Shield, PlusCircle } from 'lucide-react';
+import { Users, BookOpen, Check, X, Shield, PlusCircle, Loader2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { Modal } from '../common/Modal';
@@ -9,6 +9,7 @@ export const StudentManager = () => {
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [togglingClassId, setTogglingClassId] = useState(null);
 
   const fetchStudents = async () => {
     const stds = await lmsService.getAllStudents();
@@ -21,6 +22,7 @@ export const StudentManager = () => {
 
   const handleToggleClass = async (classId) => {
     if (!selectedStudent) return;
+    setTogglingClassId(classId);
     try {
       const isEnrolled = selectedStudent.enrolledClassIds?.includes(classId);
       let updatedEnrolled = [];
@@ -41,6 +43,8 @@ export const StudentManager = () => {
       }));
     } catch (err) {
       showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      setTogglingClassId(null);
     }
   };
 
@@ -170,8 +174,16 @@ export const StudentManager = () => {
                   type="button"
                   onClick={() => handleToggleClass(cls.id)}
                   className={`btn btn-sm ${isEnrolled ? 'btn-danger' : 'btn-primary'}`}
+                  disabled={togglingClassId === cls.id}
                 >
-                  {isEnrolled ? 'Revoke Access' : 'Enroll Student'}
+                  {togglingClassId === cls.id ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>{isEnrolled ? 'Revoking...' : 'Enrolling...'}</span>
+                    </>
+                  ) : (
+                    isEnrolled ? 'Revoke Access' : 'Enroll Student'
+                  )}
                 </button>
               </div>
             );

@@ -17,7 +17,8 @@ import {
   ArrowUpRight,
   TrendingUp,
   User,
-  BookOpen
+  BookOpen,
+  Loader2
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
@@ -39,6 +40,11 @@ export const PaymentManager = () => {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
 
   const [activePayment, setActivePayment] = useState(null);
+
+  // Loading states
+  const [savingManual, setSavingManual] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState(null);
 
   // Manual payment form state
   const [manualStudentName, setManualStudentName] = useState('');
@@ -125,6 +131,7 @@ export const PaymentManager = () => {
     }
     const selectedClass = classes.find((c) => c.id === manualClassId);
 
+    setSavingManual(true);
     try {
       await lmsService.recordManualPayment({
         studentId: `student-${Date.now()}`,
@@ -149,6 +156,8 @@ export const PaymentManager = () => {
       await refreshAll();
     } catch (err) {
       showToast('Failed to record payment: ' + err.message, 'error');
+    } finally {
+      setSavingManual(false);
     }
   };
 
@@ -157,6 +166,7 @@ export const PaymentManager = () => {
     e.preventDefault();
     if (!activePayment) return;
 
+    setUpdatingStatus(true);
     try {
       await lmsService.updatePaymentStatus(activePayment.id, editStatus, editNotes);
       showToast(`Payment status updated to ${editStatus}!`, 'success');
@@ -165,6 +175,8 @@ export const PaymentManager = () => {
       await refreshAll();
     } catch (err) {
       showToast('Failed to update status: ' + err.message, 'error');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -173,12 +185,15 @@ export const PaymentManager = () => {
     if (!window.confirm(`Are you sure you want to delete payment record ${invoiceNo || paymentId}?`)) {
       return;
     }
+    setDeletingPaymentId(paymentId);
     try {
       await lmsService.deletePayment(paymentId);
       showToast('Payment record deleted', 'info');
       await refreshAll();
     } catch (err) {
       showToast('Failed to delete payment: ' + err.message, 'error');
+    } finally {
+      setDeletingPaymentId(null);
     }
   };
 
@@ -517,8 +532,9 @@ export const PaymentManager = () => {
                             className="btn btn-danger btn-sm"
                             style={{ padding: '0.35rem 0.55rem', fontSize: '0.75rem' }}
                             title="Delete Payment Record"
+                            disabled={deletingPaymentId === p.id}
                           >
-                            <Trash2 size={13} />
+                            {deletingPaymentId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                           </button>
                         </div>
                       </td>
@@ -645,11 +661,18 @@ export const PaymentManager = () => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setCreateModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setCreateModalOpen(false)} className="btn btn-secondary" disabled={savingManual}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Save & Record Transaction
+            <button type="submit" className="btn btn-primary" disabled={savingManual}>
+              {savingManual ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Recording Transaction...</span>
+                </>
+              ) : (
+                'Save & Record Transaction'
+              )}
             </button>
           </div>
         </form>
@@ -706,11 +729,19 @@ export const PaymentManager = () => {
                   setActivePayment(null);
                 }}
                 className="btn btn-secondary"
+                disabled={updatingStatus}
               >
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary">
-                Update Status
+              <button type="submit" className="btn btn-primary" disabled={updatingStatus}>
+                {updatingStatus ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Updating Status...</span>
+                  </>
+                ) : (
+                  'Update Status'
+                )}
               </button>
             </div>
           </form>

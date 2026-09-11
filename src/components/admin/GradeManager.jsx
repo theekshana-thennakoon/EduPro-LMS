@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Award, BookOpen, Users, ArrowUpRight, CheckCircle, GraduationCap } from 'lucide-react';
+import { Plus, Edit2, Trash2, Award, BookOpen, Users, ArrowUpRight, CheckCircle, GraduationCap, Loader2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { Modal } from '../common/Modal';
@@ -9,6 +9,8 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form states
   const [name, setName] = useState('');
@@ -44,6 +46,7 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
       return;
     }
 
+    setSaving(true);
     try {
       if (editingGrade) {
         await lmsService.updateGrade(editingGrade.id, {
@@ -68,6 +71,8 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
       setModalOpen(false);
     } catch (err) {
       showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -90,12 +95,15 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
       }
     }
 
+    setDeletingId(id);
     try {
       await lmsService.deleteGrade(id);
       showToast('Grade level removed', 'info');
       await refreshAll();
     } catch (err) {
       showToast('Failed to delete grade', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -207,8 +215,13 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
                         className="btn btn-danger btn-sm"
                         style={{ padding: '0.4rem' }}
                         title="Delete Grade"
+                        disabled={deletingId === grd.id}
                       >
-                        <Trash2 size={15} />
+                        {deletingId === grd.id ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={15} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -356,11 +369,17 @@ export const GradeManager = ({ onSelectGradeForClasses }) => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary" disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingGrade ? 'Save Changes' : 'Create Grade Level'}
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> {editingGrade ? 'Saving...' : 'Creating...'}
+                </>
+              ) : (
+                editingGrade ? 'Save Changes' : 'Create Grade Level'
+              )}
             </button>
           </div>
         </form>

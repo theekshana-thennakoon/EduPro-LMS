@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard, Database, Trash2 } from 'lucide-react';
+import { Save, Download, Upload, RefreshCw, Sliders, Shield, Globe, CreditCard, Database, Trash2, Loader2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { initializeStorage, storage, STORAGE_KEYS, clearAllDemoData } from '../../services/storageService';
@@ -27,6 +27,12 @@ export const SiteSettings = () => {
   // Import JSON string
   const [importJson, setImportJson] = useState('');
 
+  // Loading states
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [importing, setImporting] = useState(false);
+
   useEffect(() => {
     if (settings) {
       setSiteName(settings.siteName || '');
@@ -48,8 +54,8 @@ export const SiteSettings = () => {
     }
   }, [settings]);
 
-  const handleSaveSettings = async (e) => {
-    e.preventDefault();
+  const saveSettingsPayload = async (setter) => {
+    setter(true);
     try {
       await lmsService.updateSettings({
         siteName,
@@ -73,7 +79,24 @@ export const SiteSettings = () => {
       await refreshAll();
     } catch (err) {
       showToast('Failed to save settings: ' + err.message, 'error');
+    } finally {
+      setter(false);
     }
+  };
+
+  const handleSaveBranding = (e) => {
+    e.preventDefault();
+    saveSettingsPayload(setSavingBranding);
+  };
+
+  const handleSaveContact = (e) => {
+    e.preventDefault();
+    saveSettingsPayload(setSavingContact);
+  };
+
+  const handleSavePayment = (e) => {
+    e.preventDefault();
+    saveSettingsPayload(setSavingPayment);
   };
 
   const handleExportData = () => {
@@ -97,6 +120,7 @@ export const SiteSettings = () => {
       showToast('Please paste a valid JSON string into the box', 'error');
       return;
     }
+    setImporting(true);
     try {
       lmsService.importDatabaseJSON(importJson);
       showToast('Database imported successfully!', 'success');
@@ -104,6 +128,8 @@ export const SiteSettings = () => {
       await refreshAll();
     } catch (err) {
       showToast('Import failed: ' + err.message, 'error');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -141,7 +167,7 @@ export const SiteSettings = () => {
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Academy Branding</h3>
           </div>
 
-          <form onSubmit={handleSaveSettings}>
+          <form onSubmit={handleSaveBranding}>
             <div className="form-group">
               <label className="form-label">Site / LMS Name</label>
               <input
@@ -199,8 +225,17 @@ export const SiteSettings = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '1rem' }}>
-              <Save size={16} /> Save Branding
+            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} disabled={savingBranding}>
+              {savingBranding ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving Branding...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Save Branding
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -212,7 +247,7 @@ export const SiteSettings = () => {
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Contact & Admissions</h3>
           </div>
 
-          <form onSubmit={handleSaveSettings}>
+          <form onSubmit={handleSaveContact}>
             <div className="form-group">
               <label className="form-label">Academic Support Email</label>
               <input
@@ -254,8 +289,17 @@ export const SiteSettings = () => {
               </label>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '1rem' }}>
-              <Save size={16} /> Save Contact Info
+            <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: '1rem' }} disabled={savingContact}>
+              {savingContact ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving Contact Info...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Save Contact Info
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -267,7 +311,7 @@ export const SiteSettings = () => {
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Payment & Billing Settings</h3>
           </div>
 
-          <form onSubmit={handleSaveSettings}>
+          <form onSubmit={handleSavePayment}>
             <div className="form-group">
               <label className="form-label">Default Currency Symbol</label>
               <input
@@ -315,8 +359,17 @@ export const SiteSettings = () => {
               />
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block">
-              <Save size={16} /> Save Payment Config
+            <button type="submit" className="btn btn-primary btn-block" disabled={savingPayment}>
+              {savingPayment ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Saving Payment Config...</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> Save Payment Config
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -405,8 +458,17 @@ export const SiteSettings = () => {
             onChange={(e) => setImportJson(e.target.value)}
             style={{ marginBottom: '0.75rem', fontFamily: 'monospace', fontSize: '0.8rem' }}
           />
-          <button onClick={handleImportData} className="btn btn-secondary btn-sm">
-            <Upload size={14} /> Import & Synchronize Database
+          <button onClick={handleImportData} className="btn btn-secondary btn-sm" disabled={importing}>
+            {importing ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Importing & Synchronizing...</span>
+              </>
+            ) : (
+              <>
+                <Upload size={14} /> Import & Synchronize Database
+              </>
+            )}
           </button>
         </div>
       </div>

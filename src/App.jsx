@@ -43,6 +43,73 @@ export const App = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
+  // Global Security & Source Protection (Right Click, DevTools, Inspect, View Source, Mobile Long Press)
+  useEffect(() => {
+    // 1. Prevent Right-Click Context Menu
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // 2. Prevent Keyboard Inspection Shortcuts (Ctrl+U, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, F12, Ctrl+S)
+    const handleKeyDown = (e) => {
+      const isMac = typeof navigator !== 'undefined' && navigator.platform && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+      const key = e.key ? e.key.toLowerCase() : '';
+      const keyCode = e.keyCode || e.which;
+
+      // F12 (DevTools)
+      if (key === 'f12' || keyCode === 123) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl + U / Cmd + U (View Source)
+      if (ctrlOrCmd && (key === 'u' || keyCode === 85)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl + Shift + I / Cmd + Opt + I (Inspect)
+      if (ctrlOrCmd && (e.shiftKey || (isMac && e.altKey)) && (key === 'i' || keyCode === 73)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl + Shift + J / Cmd + Opt + J (Console)
+      if (ctrlOrCmd && (e.shiftKey || (isMac && e.altKey)) && (key === 'j' || keyCode === 74)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl + Shift + C / Cmd + Opt + C (Element Inspector)
+      if (ctrlOrCmd && (e.shiftKey || (isMac && e.altKey)) && (key === 'c' || keyCode === 67)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Ctrl + S / Cmd + S (Save Page)
+      if (ctrlOrCmd && (key === 's' || keyCode === 83)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu, { capture: true });
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu, { capture: true });
+      window.removeEventListener('keydown', handleKeyDown, { capture: true });
+    };
+  }, []);
+
   // Sync default view when user role changes
   useEffect(() => {
     if (isTeacher) {

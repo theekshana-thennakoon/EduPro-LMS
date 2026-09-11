@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Calendar, BookOpen, Award, CheckCircle, Save, Shield } from 'lucide-react';
+import { User, Mail, Calendar, BookOpen, Award, CheckCircle, Save, Shield, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLms } from '../../context/LmsContext';
 import { ImageUpload } from '../common/ImageUpload';
@@ -193,7 +193,17 @@ export const StudentProfileView = () => {
 
             <div style={{ marginTop: '1rem', textAlign: 'right' }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>
-                <Save size={16} /> {saving ? 'Saving...' : 'Save Profile Changes'}
+                {saving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Saving Profile Changes...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Save Profile Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

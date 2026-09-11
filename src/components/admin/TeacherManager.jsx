@@ -12,7 +12,8 @@ import {
   CheckCircle,
   GraduationCap,
   Sparkles,
-  Key
+  Key,
+  Loader2
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { useAuth } from '../../context/AuthContext';
@@ -41,6 +42,7 @@ export const TeacherManager = ({ onSelectTeacherForClasses }) => {
   const [bio, setBio] = useState('');
   const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const fetchTeachers = async () => {
     try {
@@ -144,12 +146,15 @@ export const TeacherManager = ({ onSelectTeacherForClasses }) => {
       }
     }
 
+    setDeletingId(teacher.id);
     try {
       await lmsService.deleteTeacher(teacher.id);
       showToast('Teacher removed from faculty directory', 'info');
       await fetchTeachers();
     } catch (err) {
       showToast(err.message || 'Failed to delete teacher', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -296,8 +301,9 @@ export const TeacherManager = ({ onSelectTeacherForClasses }) => {
                         className="btn btn-danger btn-sm"
                         style={{ padding: '0.35rem' }}
                         title="Delete Teacher"
+                        disabled={deletingId === teacher.id}
                       >
-                        <Trash2 size={15} />
+                        {deletingId === teacher.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                       </button>
                     </div>
                   </div>
@@ -471,11 +477,18 @@ export const TeacherManager = ({ onSelectTeacherForClasses }) => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary" disabled={saving}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : editingTeacher ? 'Save Teacher Changes' : 'Register Faculty Teacher'}
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingTeacher ? 'Saving Changes...' : 'Registering Faculty...'}</span>
+                </>
+              ) : (
+                editingTeacher ? 'Save Teacher Changes' : 'Register Faculty Teacher'
+              )}
             </button>
           </div>
         </form>

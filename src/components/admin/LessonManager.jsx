@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle,
   ExternalLink,
-  Upload
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
@@ -26,6 +27,16 @@ export const LessonManager = ({ initialClassId }) => {
   const [lessons, setLessons] = useState([]);
   const [expandedLessonId, setExpandedLessonId] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('videos'); // 'videos', 'quizzes', 'notes'
+
+  // Loading states
+  const [savingLesson, setSavingLesson] = useState(false);
+  const [deletingLessonId, setDeletingLessonId] = useState(null);
+  const [savingVideo, setSavingVideo] = useState(false);
+  const [deletingVideoId, setDeletingVideoId] = useState(null);
+  const [savingQuiz, setSavingQuiz] = useState(false);
+  const [deletingQuizId, setDeletingQuizId] = useState(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState(null);
 
   // Modal states
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
@@ -95,6 +106,7 @@ export const LessonManager = ({ initialClassId }) => {
       return;
     }
 
+    setSavingLesson(true);
     try {
       if (editingLesson) {
         await lmsService.updateLesson(editingLesson.id, {
@@ -119,6 +131,8 @@ export const LessonManager = ({ initialClassId }) => {
       setLessonModalOpen(false);
     } catch (err) {
       showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      setSavingLesson(false);
     }
   };
 
@@ -126,12 +140,15 @@ export const LessonManager = ({ initialClassId }) => {
     if (!window.confirm(`Delete lesson "${title}" and all attached videos, quizzes, and notes?`)) {
       return;
     }
+    setDeletingLessonId(id);
     try {
       await lmsService.deleteLesson(id);
       showToast('Lesson deleted', 'info');
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast('Failed to delete lesson', 'error');
+    } finally {
+      setDeletingLessonId(null);
     }
   };
 
@@ -162,6 +179,7 @@ export const LessonManager = ({ initialClassId }) => {
       showToast('Video title and URL are required', 'error');
       return;
     }
+    setSavingVideo(true);
     try {
       if (editingVideo) {
         await lmsService.updateVideoInLesson(targetLessonForVideo, editingVideo.id, {
@@ -185,17 +203,22 @@ export const LessonManager = ({ initialClassId }) => {
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast(err.message || 'Failed to save video', 'error');
+    } finally {
+      setSavingVideo(false);
     }
   };
 
   const handleDeleteVideo = async (lessonId, videoId) => {
     if (!window.confirm('Remove this video?')) return;
+    setDeletingVideoId(videoId);
     try {
       await lmsService.deleteVideoFromLesson(lessonId, videoId);
       showToast('Video removed', 'info');
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast('Failed to remove video', 'error');
+    } finally {
+      setDeletingVideoId(null);
     }
   };
 
@@ -314,6 +337,7 @@ export const LessonManager = ({ initialClassId }) => {
       }
     }
 
+    setSavingQuiz(true);
     try {
       if (editingQuiz) {
         await lmsService.updateQuizInLesson(targetLessonForQuiz, editingQuiz.id, {
@@ -337,17 +361,22 @@ export const LessonManager = ({ initialClassId }) => {
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast(err.message || 'Failed to save quiz', 'error');
+    } finally {
+      setSavingQuiz(false);
     }
   };
 
   const handleDeleteQuiz = async (lessonId, quizId) => {
     if (!window.confirm('Delete this quiz?')) return;
+    setDeletingQuizId(quizId);
     try {
       await lmsService.deleteQuizFromLesson(lessonId, quizId);
       showToast('Quiz removed', 'info');
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast('Failed to remove quiz', 'error');
+    } finally {
+      setDeletingQuizId(null);
     }
   };
 
@@ -376,6 +405,7 @@ export const LessonManager = ({ initialClassId }) => {
       showToast('Note title is required', 'error');
       return;
     }
+    setSavingNote(true);
     try {
       if (editingNote) {
         await lmsService.updateNoteInLesson(targetLessonForNote, editingNote.id, {
@@ -399,17 +429,22 @@ export const LessonManager = ({ initialClassId }) => {
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast(err.message || 'Failed to save notes', 'error');
+    } finally {
+      setSavingNote(false);
     }
   };
 
   const handleDeleteNote = async (lessonId, noteId) => {
     if (!window.confirm('Delete this note?')) return;
+    setDeletingNoteId(noteId);
     try {
       await lmsService.deleteNoteFromLesson(lessonId, noteId);
       showToast('Note removed', 'info');
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast('Failed to remove note', 'error');
+    } finally {
+      setDeletingNoteId(null);
     }
   };
 
@@ -567,8 +602,9 @@ export const LessonManager = ({ initialClassId }) => {
                       className="btn btn-danger btn-sm"
                       style={{ padding: '0.4rem' }}
                       title="Delete Lesson"
+                      disabled={deletingLessonId === lesson.id}
                     >
-                      <Trash2 size={15} />
+                      {deletingLessonId === lesson.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                     </button>
 
                     <button
@@ -679,8 +715,9 @@ export const LessonManager = ({ initialClassId }) => {
                                         className="btn btn-danger btn-sm"
                                         style={{ padding: '0.3rem' }}
                                         title="Remove Video"
+                                        disabled={deletingVideoId === vid.id}
                                       >
-                                        <Trash2 size={13} />
+                                        {deletingVideoId === vid.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                       </button>
                                     </div>
                                   </div>
@@ -776,8 +813,9 @@ export const LessonManager = ({ initialClassId }) => {
                                       className="btn btn-danger btn-sm"
                                       style={{ padding: '0.35rem 0.5rem' }}
                                       title="Delete Quiz"
+                                      disabled={deletingQuizId === quiz.id}
                                     >
-                                      <Trash2 size={13} />
+                                      {deletingQuizId === quiz.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                     </button>
                                   </div>
                                 </div>
@@ -880,8 +918,9 @@ export const LessonManager = ({ initialClassId }) => {
                                       className="btn btn-danger btn-sm"
                                       style={{ padding: '0.3rem' }}
                                       title="Delete Note"
+                                      disabled={deletingNoteId === note.id}
                                     >
-                                      <Trash2 size={13} />
+                                      {deletingNoteId === note.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                     </button>
                                   </div>
                                 </div>
@@ -959,11 +998,18 @@ export const LessonManager = ({ initialClassId }) => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setLessonModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setLessonModalOpen(false)} className="btn btn-secondary" disabled={savingLesson}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingLesson ? 'Save Changes' : 'Create Lesson'}
+            <button type="submit" className="btn btn-primary" disabled={savingLesson}>
+              {savingLesson ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingLesson ? 'Saving Changes...' : 'Creating Lesson...'}</span>
+                </>
+              ) : (
+                editingLesson ? 'Save Changes' : 'Create Lesson'
+              )}
             </button>
           </div>
         </form>
@@ -1050,11 +1096,19 @@ export const LessonManager = ({ initialClassId }) => {
                 setEditingVideo(null);
               }}
               className="btn btn-secondary"
+              disabled={savingVideo}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingVideo ? 'Save Video Changes' : 'Attach Video'}
+            <button type="submit" className="btn btn-primary" disabled={savingVideo}>
+              {savingVideo ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingVideo ? 'Saving Video Changes...' : 'Attaching Video...'}</span>
+                </>
+              ) : (
+                editingVideo ? 'Save Video Changes' : 'Attach Video'
+              )}
             </button>
           </div>
         </form>
@@ -1364,11 +1418,19 @@ export const LessonManager = ({ initialClassId }) => {
                 setEditingQuiz(null);
               }}
               className="btn btn-secondary"
+              disabled={savingQuiz}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingQuiz ? 'Save Quiz Changes' : 'Publish Quiz'}
+            <button type="submit" className="btn btn-primary" disabled={savingQuiz}>
+              {savingQuiz ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingQuiz ? 'Saving Quiz Changes...' : 'Publishing Quiz...'}</span>
+                </>
+              ) : (
+                editingQuiz ? 'Save Quiz Changes' : 'Publish Quiz'
+              )}
             </button>
           </div>
         </form>
@@ -1427,11 +1489,19 @@ export const LessonManager = ({ initialClassId }) => {
                 setEditingNote(null);
               }}
               className="btn btn-secondary"
+              disabled={savingNote}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingNote ? 'Save Note Changes' : 'Save Notes'}
+            <button type="submit" className="btn btn-primary" disabled={savingNote}>
+              {savingNote ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{editingNote ? 'Saving Note Changes...' : 'Saving Notes...'}</span>
+                </>
+              ) : (
+                editingNote ? 'Save Note Changes' : 'Save Notes'
+              )}
             </button>
           </div>
         </form>

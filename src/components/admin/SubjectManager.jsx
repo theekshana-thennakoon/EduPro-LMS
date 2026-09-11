@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Layers, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, Layers, BookOpen, Loader2 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
 import { Modal } from '../common/Modal';
@@ -9,6 +9,8 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Form states
   const [name, setName] = useState('');
@@ -44,6 +46,7 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
       return;
     }
 
+    setSaving(true);
     try {
       if (editingSubject) {
         await lmsService.updateSubject(editingSubject.id, {
@@ -68,6 +71,8 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
       setModalOpen(false);
     } catch (err) {
       showToast(err.message || 'Operation failed', 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -83,12 +88,15 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
       }
     }
 
+    setDeletingId(id);
     try {
       await lmsService.deleteSubject(id);
       showToast('Subject deleted', 'info');
       await refreshAll();
     } catch (err) {
       showToast('Failed to delete subject', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -146,8 +154,13 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
                       className="btn btn-danger btn-sm"
                       style={{ padding: '0.4rem' }}
                       title="Delete Subject"
+                      disabled={deletingId === subj.id}
                     >
-                      <Trash2 size={15} />
+                      {deletingId === subj.id ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -259,11 +272,17 @@ export const SubjectManager = ({ onSelectSubjectForClasses }) => {
           </div>
 
           <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: 'none' }}>
-            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary">
+            <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary" disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {editingSubject ? 'Save Changes' : 'Create Subject'}
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> {editingSubject ? 'Saving...' : 'Creating...'}
+                </>
+              ) : (
+                editingSubject ? 'Save Changes' : 'Create Subject'
+              )}
             </button>
           </div>
         </form>

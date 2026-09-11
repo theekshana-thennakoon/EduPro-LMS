@@ -1,5 +1,6 @@
 import { storage, STORAGE_KEYS, initializeStorage } from './storageService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { emailService } from './emailService';
 
 // Ensure storage is initialized
 initializeStorage();
@@ -141,9 +142,65 @@ export const authService = {
     return localUser;
   },
 
-  // Register a new student
-  registerStudent: async ({ name, email, password, grade, targetClassId = null }) => {
+  // Check if email address is already registered
+  checkEmailAvailability: async (email) => {
     const normalizedEmail = email.trim().toLowerCase();
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .ilike('email', normalizedEmail)
+          .maybeSingle();
+
+        if (existing) {
+          return { available: false, error: 'An account with this email address already exists.' };
+        }
+      } catch (err) {
+        console.warn('Supabase email check exception:', err);
+      }
+    }
+
+    const users = storage.get(STORAGE_KEYS.USERS, []);
+    const exists = users.some((u) => u.email.toLowerCase() === normalizedEmail);
+    if (exists) {
+      return { available: false, error: 'An account with this email address already exists.' };
+    }
+
+    return { available: true };
+  },
+
+  // Send Registration OTP Email
+  requestRegistrationOtp: async ({ name, email, instituteName = 'EduPro Learning Academy' }) => {
+    const check = await authService.checkEmailAvailability(email);
+    if (!check.available) {
+      throw new Error(check.error);
+    }
+
+    return await emailService.sendRegistrationOtp({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      instituteName
+    });
+  },
+
+  // Verify Registration OTP
+  verifyRegistrationOtp: (email, otpCode) => {
+    return emailService.verifyOtp(email, otpCode);
+  },
+
+  // Register a new student (with verified OTP)
+  registerStudent: async ({ name, email, password, grade, targetClassId = null, otp = null }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Verify OTP if provided
+    if (otp) {
+      const otpRes = emailService.verifyOtp(normalizedEmail, otp);
+      if (!otpRes.valid) {
+        throw new Error(otpRes.error || 'Invalid OTP verification code');
+      }
+    }
 
     const newStudent = {
       id: `student-${Date.now()}`,

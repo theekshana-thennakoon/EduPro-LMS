@@ -27,6 +27,18 @@ export const AuthProvider = ({ children }) => {
     return user;
   };
 
+  const requestRegistrationOtp = async ({ name, email, instituteName }) => {
+    return await authService.requestRegistrationOtp({ name, email, instituteName });
+  };
+
+  const verifyRegistrationOtp = (email, otpCode) => {
+    return authService.verifyRegistrationOtp(email, otpCode);
+  };
+
+  const checkEmailAvailability = async (email) => {
+    return await authService.checkEmailAvailability(email);
+  };
+
   const registerStudent = async (data) => {
     const user = await authService.registerStudent(data);
     setCurrentUser(user);
@@ -53,6 +65,9 @@ export const AuthProvider = ({ children }) => {
         login,
         loginWithGoogle,
         registerStudent,
+        requestRegistrationOtp,
+        verifyRegistrationOtp,
+        checkEmailAvailability,
         updateProfile,
         logout,
         isAuthenticated: !!currentUser,

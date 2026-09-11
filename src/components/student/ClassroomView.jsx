@@ -16,7 +16,10 @@ import {
   CreditCard,
   RefreshCw,
   Video,
-  Loader2
+  Loader2,
+  Shield,
+  ShieldAlert,
+  EyeOff
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +36,9 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   const [activeLesson, setActiveLesson] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
   const [activeTab, setActiveTab] = useState('video'); // 'video', 'quiz', 'notes'
+
+  // Anti-Screen Recording & Window Blur Protection
+  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
 
   // Enrollment checkout modal state
   const [enrollModalOpen, setEnrollModalOpen] = useState(false);
@@ -52,6 +58,34 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
 
   // Check enrollment guard: strictly enforce student enrollment!
   const isEnrolled = checkEnrollment(classId);
+
+  // Window blur / Tab switch anti-capture listener
+  useEffect(() => {
+    const handleBlur = () => {
+      // Obfuscate player when window unfocuses
+      setIsWindowBlurred(true);
+    };
+
+    const handleFocus = () => {
+      setIsWindowBlurred(false);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setIsWindowBlurred(true);
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     const cls = classes.find((c) => c.id === classId);
@@ -375,20 +409,54 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
         <div>
           {activeLesson ? (
             <div>
-              {/* Multi-Video Player Container */}
-              <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.5rem', overflow: 'hidden' }}>
+              {/* Multi-Video Player Container with Screen Recording Protection */}
+              <div className="glass-card protected-player-container" style={{ padding: '1rem', marginBottom: '1.5rem', overflow: 'hidden' }}>
                 {activeVideo ? (
                   <div>
-                    <div className="video-player-wrapper">
+                    <div className="video-player-wrapper" style={{ position: 'relative' }}>
+                      {/* Dynamic Anti-Piracy Forensic Watermark */}
+                      <div className="video-watermark-overlay">
+                        <span>🛡️ {currentUser?.name || 'Verified Scholar'}</span>
+                        <span>{currentUser?.email || 'student@edupro.org'}</span>
+                        <span style={{ fontSize: '0.65rem' }}>STUDENT ID: {currentUser?.id || 'std-sec'}</span>
+                      </div>
+
+                      {/* Anti-Screen Recording / Window Blur Overlay */}
+                      {isWindowBlurred && (
+                        <div className="screen-blur-overlay" onClick={() => setIsWindowBlurred(false)}>
+                          <EyeOff size={42} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+                          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                            Content Hidden • Anti-Screen Recording Protection
+                          </h3>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '420px', marginBottom: '1.25rem' }}>
+                            Lecture video playback is shielded while the classroom tab or window is out of focus to protect educational material.
+                          </p>
+                          <button className="btn btn-primary btn-sm" onClick={() => setIsWindowBlurred(false)}>
+                            <Play size={14} /> Resume Lesson Playback
+                          </button>
+                        </div>
+                      )}
+
                       {activeVideo.url.includes('youtube.com') || activeVideo.url.includes('youtu.be') ? (
                         <iframe
                           src={activeVideo.url.replace('watch?v=', 'embed/')}
                           title={activeVideo.title}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
+                          onContextMenu={(e) => e.preventDefault()}
                         />
                       ) : (
-                        <video controls src={activeVideo.url} key={activeVideo.url} poster={currentClass?.thumbnail}>
+                        <video
+                          controls
+                          controlsList="nodownload nofullscreen noremoteplayback"
+                          disablePictureInPicture
+                          disableRemotePlayback
+                          onContextMenu={(e) => e.preventDefault()}
+                          onDragStart={(e) => e.preventDefault()}
+                          src={activeVideo.url}
+                          key={activeVideo.url}
+                          poster={currentClass?.thumbnail}
+                        >
                           Your browser does not support HTML5 video.
                         </video>
                       )}

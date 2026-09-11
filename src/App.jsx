@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { useLms } from './context/LmsContext';
 import { Navbar } from './components/common/Navbar';
@@ -43,7 +44,9 @@ export const App = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  // Global Security & Source Protection (Right Click, DevTools, Inspect, View Source, Mobile Long Press)
+  // Global Security & Screen Recording / Screen Capture Protection
+  const [securityAlert, setSecurityAlert] = useState(null);
+
   useEffect(() => {
     // 1. Prevent Right-Click Context Menu
     const handleContextMenu = (e) => {
@@ -51,12 +54,55 @@ export const App = () => {
       return false;
     };
 
-    // 2. Prevent Keyboard Inspection Shortcuts (Ctrl+U, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, F12, Ctrl+S)
+    // 2. Block Web Screen Recording API (navigator.mediaDevices.getDisplayMedia)
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      try {
+        const originalGetDisplayMedia = navigator.mediaDevices.getDisplayMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getDisplayMedia = async () => {
+          setSecurityAlert('Screen recording / screen sharing is prohibited on this educational portal.');
+          throw new DOMException('Screen recording and screen capture are strictly prohibited by EduPro LMS security policy.', 'NotAllowedError');
+        };
+      } catch (err) {
+        console.warn('Screen capture API protection initialized:', err);
+      }
+    }
+
+    // 3. Prevent Keyboard Inspection & Screen Capture Shortcuts
     const handleKeyDown = (e) => {
       const isMac = typeof navigator !== 'undefined' && navigator.platform && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
       const key = e.key ? e.key.toLowerCase() : '';
       const keyCode = e.keyCode || e.which;
+
+      // PrintScreen Key / Snipping Tool (Key 44 or 'PrintScreen')
+      if (key === 'printscreen' || keyCode === 44) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('').catch(() => {});
+        }
+        setSecurityAlert('⚠️ Screen capture is disabled for copyright protection.');
+        return false;
+      }
+
+      // Windows + Shift + S / Cmd + Shift + 3, 4, 5 (Snipping Tool & Screen Capture)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (key === 's' || key === '3' || key === '4' || key === '5' || keyCode === 83 || keyCode === 51 || keyCode === 52 || keyCode === 53)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('').catch(() => {});
+        }
+        setSecurityAlert('⚠️ Screen capture and recording are disabled on this LMS.');
+        return false;
+      }
+
+      // Ctrl + P / Cmd + P (Print to PDF / Paper)
+      if (ctrlOrCmd && (key === 'p' || keyCode === 80)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSecurityAlert('⚠️ Printing course content is restricted.');
+        return false;
+      }
 
       // F12 (DevTools)
       if (key === 'f12' || keyCode === 123) {
@@ -101,14 +147,35 @@ export const App = () => {
       }
     };
 
+    const handleKeyUp = (e) => {
+      const key = e.key ? e.key.toLowerCase() : '';
+      const keyCode = e.keyCode || e.which;
+      if (key === 'printscreen' || keyCode === 44) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText('').catch(() => {});
+        }
+        setSecurityAlert('⚠️ Screen capture is disabled for copyright protection.');
+      }
+    };
+
     window.addEventListener('contextmenu', handleContextMenu, { capture: true });
     window.addEventListener('keydown', handleKeyDown, { capture: true });
+    window.addEventListener('keyup', handleKeyUp, { capture: true });
 
     return () => {
       window.removeEventListener('contextmenu', handleContextMenu, { capture: true });
       window.removeEventListener('keydown', handleKeyDown, { capture: true });
+      window.removeEventListener('keyup', handleKeyUp, { capture: true });
     };
   }, []);
+
+  // Auto-dismiss security alert after 3.5s
+  useEffect(() => {
+    if (securityAlert) {
+      const t = setTimeout(() => setSecurityAlert(null), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [securityAlert]);
 
   // Sync default view when user role changes
   useEffect(() => {
@@ -316,6 +383,14 @@ export const App = () => {
           }}
           onNeedAuth={() => setAuthModalOpen(true)}
         />
+
+        {/* Anti-Screen Recording & Protection Toast */}
+        {securityAlert && (
+          <div className="security-toast">
+            <ShieldAlert size={18} />
+            <span>{securityAlert}</span>
+          </div>
+        )}
       </div>
     </div>
   );

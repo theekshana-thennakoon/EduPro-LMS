@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Video,
@@ -13,10 +13,16 @@ import {
   CheckCircle,
   ExternalLink,
   Upload,
+  UploadCloud,
   Loader2,
   Eye,
   X,
-  FileCheck
+  FileCheck,
+  Film,
+  Sparkles,
+  Link2,
+  FileVideo,
+  PlayCircle
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
@@ -55,7 +61,14 @@ export const LessonManager = ({ initialClassId }) => {
   const [videoUrl, setVideoUrl] = useState('');
   const [videoDuration, setVideoDuration] = useState('15:00');
   const [videoDescription, setVideoDescription] = useState('');
+  const [videoFileName, setVideoFileName] = useState('');
+  const [videoFileSize, setVideoFileSize] = useState('');
+  const [videoUploadType, setVideoUploadType] = useState('file'); // 'file' or 'url'
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoDragOver, setVideoDragOver] = useState(false);
+  const [isAutoDuration, setIsAutoDuration] = useState(false);
   const [targetLessonForVideo, setTargetLessonForVideo] = useState(null);
+  const videoFileInputRef = useRef(null);
 
   // Quiz modal
   const [quizModalOpen, setQuizModalOpen] = useState(false);
@@ -164,6 +177,20 @@ export const LessonManager = ({ initialClassId }) => {
     }
   };
 
+  // Helper to format video seconds into MM:SS or HH:MM:SS
+  const formatSecondsToDuration = (seconds) => {
+    if (!seconds || isNaN(seconds)) return '15:00';
+    const totalSecs = Math.round(seconds);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    if (hrs > 0) {
+      return `${hrs}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
+  };
+
   // Video Handlers
   const handleOpenAddVideo = (lessonId) => {
     setEditingVideo(null);
@@ -172,6 +199,12 @@ export const LessonManager = ({ initialClassId }) => {
     setVideoUrl('');
     setVideoDuration('15:00');
     setVideoDescription('');
+    setVideoFileName('');
+    setVideoFileSize('');
+    setVideoUploadType('file');
+    setUploadingVideo(false);
+    setVideoDragOver(false);
+    setIsAutoDuration(false);
     setVideoModalOpen(true);
   };
 
@@ -182,13 +215,92 @@ export const LessonManager = ({ initialClassId }) => {
     setVideoUrl(video.url || '');
     setVideoDuration(video.duration || '15:00');
     setVideoDescription(video.description || '');
+    setVideoFileName(video.fileName || '');
+    setVideoFileSize(video.fileSize || '');
+    setVideoUploadType(video.url?.startsWith('data:') || video.fileName ? 'file' : (video.url ? 'url' : 'file'));
+    setUploadingVideo(false);
+    setVideoDragOver(false);
+    setIsAutoDuration(false);
     setVideoModalOpen(true);
+  };
+
+  const handleVideoFileUpload = (e) => {
+    const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|webm|mov|mkv|ogg|m4v)$/i)) {
+      showToast('Please select a valid video file (.mp4, .webm, .mov, .mkv, .ogg)', 'error');
+      return;
+    }
+
+    if (file.size > 200 * 1024 * 1024) {
+      showToast('Video file exceeds 200MB limit. Consider direct stream URL for large files.', 'error');
+      return;
+    }
+
+    setUploadingVideo(true);
+    const sizeInMb = file.size / (1024 * 1024);
+    const sizeStr = sizeInMb < 1 ? `${(file.size / 1024).toFixed(0)} KB` : `${sizeInMb.toFixed(1)} MB`;
+
+    // Attempt to extract duration using a temporary video element
+    try {
+      const tempUrl = URL.createObjectURL(file);
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.src = tempUrl;
+      tempVideo.onloadedmetadata = () => {
+        if (tempVideo.duration && !isNaN(tempVideo.duration)) {
+          const formatted = formatSecondsToDuration(tempVideo.duration);
+          setVideoDuration(formatted);
+          setIsAutoDuration(true);
+        }
+        URL.revokeObjectURL(tempUrl);
+      };
+    } catch (err) {
+      console.warn('Could not auto-extract video duration:', err);
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const dataUrl = uploadEvent.target.result;
+      setVideoUrl(dataUrl);
+      setVideoFileName(file.name);
+      setVideoFileSize(sizeStr);
+      if (!videoTitle.trim()) {
+        const cleanName = file.name
+          .replace(/\.(mp4|webm|mov|mkv|ogg|m4v)$/i, '')
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        setVideoTitle(cleanName);
+      }
+      setUploadingVideo(false);
+      showToast(`Video "${file.name}" ready to attach!`, 'success');
+    };
+    reader.onerror = () => {
+      showToast('Failed to read video file from device', 'error');
+      setUploadingVideo(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAttachedVideo = () => {
+    setVideoUrl('');
+    setVideoFileName('');
+    setVideoFileSize('');
+    setIsAutoDuration(false);
+    if (videoFileInputRef.current) {
+      videoFileInputRef.current.value = '';
+    }
   };
 
   const handleSaveVideo = async (e) => {
     e.preventDefault();
-    if (!videoTitle.trim() || !videoUrl.trim()) {
-      showToast('Video title and URL are required', 'error');
+    if (!videoTitle.trim()) {
+      showToast('Video title is required', 'error');
+      return;
+    }
+    if (!videoUrl.trim()) {
+      showToast('Please upload a video file or enter a video stream URL', 'error');
       return;
     }
     setSavingVideo(true);
@@ -197,16 +309,20 @@ export const LessonManager = ({ initialClassId }) => {
         await lmsService.updateVideoInLesson(targetLessonForVideo, editingVideo.id, {
           title: videoTitle.trim(),
           url: videoUrl.trim(),
-          duration: videoDuration.trim(),
-          description: videoDescription.trim()
+          duration: videoDuration.trim() || '15:00',
+          description: videoDescription.trim(),
+          fileName: videoFileName,
+          fileSize: videoFileSize
         });
         showToast('Video updated successfully!', 'success');
       } else {
         await lmsService.addVideoToLesson(targetLessonForVideo, {
           title: videoTitle.trim(),
           url: videoUrl.trim(),
-          duration: videoDuration.trim(),
-          description: videoDescription.trim()
+          duration: videoDuration.trim() || '15:00',
+          description: videoDescription.trim(),
+          fileName: videoFileName,
+          fileSize: videoFileSize
         });
         showToast('Video attached to lesson!', 'success');
       }
@@ -1102,15 +1218,226 @@ export const LessonManager = ({ initialClassId }) => {
           setVideoModalOpen(false);
           setEditingVideo(null);
         }}
-        title={editingVideo ? 'Edit Video Lecture' : 'Attach Video to Lesson'}
+        title={editingVideo ? 'Edit Video Lecture' : 'Attach Video Lecture to Lesson'}
+        size="lg"
       >
         <form onSubmit={handleSaveVideo}>
+          {/* Top Video Upload & Source Control Card */}
+          <div className="video-upload-wrapper">
+            <div className="video-upload-header">
+              <label className="form-label" style={{ margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.9rem' }}>
+                <Film size={18} color="var(--primary)" /> Video Lecture Media Source *
+              </label>
+
+              {/* Segmented Upload Method Switcher */}
+              <div className="video-tab-segmented">
+                <button
+                  type="button"
+                  onClick={() => setVideoUploadType('file')}
+                  className={`video-tab-btn ${videoUploadType === 'file' ? 'active' : ''}`}
+                >
+                  <UploadCloud size={14} /> Upload from Device
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVideoUploadType('url')}
+                  className={`video-tab-btn ${videoUploadType === 'url' ? 'active' : ''}`}
+                >
+                  <Link2 size={14} /> Stream URL / Link
+                </button>
+              </div>
+            </div>
+
+            {/* Video File / URL Selector Box */}
+            {videoUrl ? (
+              <div className="video-preview-card">
+                <div className="video-player-preview-wrapper">
+                  {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={videoUrl.replace('watch?v=', 'embed/')}
+                      title="Video Preview"
+                      style={{ width: '100%', height: '220px', border: 'none' }}
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      controls
+                      src={videoUrl}
+                      style={{ width: '100%', maxHeight: '220px', borderRadius: '4px' }}
+                    >
+                      Your browser does not support HTML5 video preview.
+                    </video>
+                  )}
+                </div>
+
+                <div className="video-meta-bar">
+                  <div className="video-meta-info">
+                    <div className="video-meta-icon">
+                      <FileVideo size={20} />
+                    </div>
+                    <div className="video-meta-details">
+                      <div className="video-meta-filename">
+                        {videoFileName || videoTitle || 'Selected Video Lecture'}
+                      </div>
+                      <div className="video-meta-sub">
+                        <span className="video-meta-badge">
+                          <CheckCircle size={11} /> Video Ready
+                        </span>
+                        {videoFileSize && <span>&bull; Size: {videoFileSize}</span>}
+                        {videoDuration && <span>&bull; Duration: {videoDuration}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoUploadType === 'file' && videoFileInputRef.current) {
+                          videoFileInputRef.current.click();
+                        } else {
+                          setVideoUrl('');
+                        }
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                    >
+                      <Upload size={13} /> Change Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveAttachedVideo}
+                      className="btn btn-danger btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                    >
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {videoUploadType === 'file' ? (
+                  <div>
+                    <input
+                      ref={videoFileInputRef}
+                      type="file"
+                      accept="video/*,.mp4,.webm,.mov,.mkv,.ogg,.m4v"
+                      onChange={handleVideoFileUpload}
+                      style={{ display: 'none' }}
+                      disabled={uploadingVideo}
+                    />
+                    <div
+                      className={`video-dropzone ${videoDragOver ? 'dragover' : ''}`}
+                      onClick={() => videoFileInputRef.current && videoFileInputRef.current.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setVideoDragOver(true);
+                      }}
+                      onDragLeave={() => setVideoDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setVideoDragOver(false);
+                        handleVideoFileUpload(e);
+                      }}
+                    >
+                      {uploadingVideo ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem' }}>
+                          <Loader2 size={36} className="animate-spin" color="var(--primary)" />
+                          <span style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Reading & Encoding Video File...
+                          </span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            Detecting duration and optimizing playback metadata
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="video-dropzone-icon-box">
+                            <UploadCloud size={28} />
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                            Click to upload or drag & drop video from device
+                          </span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                            Upload lecture videos directly from your computer or phone (Max 200MB)
+                          </span>
+                          <div className="video-format-pills">
+                            <span className="video-format-pill">MP4</span>
+                            <span className="video-format-pill">WebM</span>
+                            <span className="video-format-pill">MOV</span>
+                            <span className="video-format-pill">MKV</span>
+                            <span className="video-format-pill">Auto-Duration</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="url"
+                        className="form-control"
+                        placeholder="Paste MP4 direct URL, YouTube embed, or cloud video link..."
+                        value={videoUrl}
+                        onChange={(e) => {
+                          setVideoUrl(e.target.value);
+                          setVideoFileName('');
+                        }}
+                        style={{ paddingRight: '2.5rem' }}
+                      />
+                      <Link2
+                        size={16}
+                        color="var(--text-muted)"
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                        Quick Educational Samples / Presets:
+                      </span>
+                      <div className="video-preset-chips">
+                        <button
+                          type="button"
+                          className="video-preset-chip"
+                          onClick={() => {
+                            setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+                            setVideoFileName('BigBuckBunny_Lecture_Sample.mp4');
+                            setVideoDuration('09:56');
+                            if (!videoTitle) setVideoTitle('Introduction & First Principles Analysis');
+                          }}
+                        >
+                          <Play size={11} /> Sample Video 1 (Big Buck Bunny MP4)
+                        </button>
+                        <button
+                          type="button"
+                          className="video-preset-chip"
+                          onClick={() => {
+                            setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4');
+                            setVideoFileName('ElephantsDream_Lecture_Sample.mp4');
+                            setVideoDuration('10:53');
+                            if (!videoTitle) setVideoTitle('Part 2: Advanced Concept Application');
+                          }}
+                        >
+                          <Play size={11} /> Sample Video 2 (Elephants Dream MP4)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Form Fields for Title, Duration, Description */}
           <div className="form-group">
-            <label className="form-label">Video Title *</label>
+            <label className="form-label" style={{ fontWeight: 700 }}>Video Lecture Title *</label>
             <input
               type="text"
               className="form-control"
-              placeholder="e.g. Part 1: First Principles Proof"
+              placeholder="e.g. Part 1: First Principles Proof & Derivations"
               value={videoTitle}
               onChange={(e) => setVideoTitle(e.target.value)}
               required
@@ -1118,53 +1445,44 @@ export const LessonManager = ({ initialClassId }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Video Stream URL (MP4 / Direct / Video Link) *</label>
-            <input
-              type="url"
-              className="form-control"
-              placeholder="https://commondatastorage.googleapis.com/... or https://..."
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              required
-            />
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem' }}
-                onClick={() => setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')}
-              >
-                Preset Video 1
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem' }}
-                onClick={() => setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4')}
-              >
-                Preset Video 2
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                Duration (MM:SS or HH:MM:SS)
+              </label>
+              {isAutoDuration && (
+                <span className="video-meta-badge auto-detected">
+                  <Sparkles size={11} /> Auto-detected from file
+                </span>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. 18:30"
+                value={videoDuration}
+                onChange={(e) => {
+                  setVideoDuration(e.target.value);
+                  setIsAutoDuration(false);
+                }}
+                style={{ paddingLeft: '2.4rem' }}
+              />
+              <Clock
+                size={16}
+                color="var(--text-muted)"
+                style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}
+              />
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Duration (MM:SS)</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="e.g. 18:30"
-              value={videoDuration}
-              onChange={(e) => setVideoDuration(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Video Description / Timestamps</label>
+            <label className="form-label" style={{ fontWeight: 700 }}>Video Description & Timestamps</label>
             <textarea
               className="form-control"
-              placeholder="Key concepts discussed or timestamp highlights..."
+              placeholder="Key concepts discussed, chapter breakdowns, or timestamp highlights (e.g. 02:15 Definition, 07:40 Example 1)..."
               value={videoDescription}
               onChange={(e) => setVideoDescription(e.target.value)}
+              style={{ minHeight: '85px' }}
             />
           </div>
 
@@ -1176,18 +1494,22 @@ export const LessonManager = ({ initialClassId }) => {
                 setEditingVideo(null);
               }}
               className="btn btn-secondary"
-              disabled={savingVideo}
+              disabled={savingVideo || uploadingVideo}
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={savingVideo}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={savingVideo || uploadingVideo || !videoUrl.trim()}
+            >
               {savingVideo ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
                   <span>{editingVideo ? 'Saving Video Changes...' : 'Attaching Video...'}</span>
                 </>
               ) : (
-                editingVideo ? 'Save Video Changes' : 'Attach Video'
+                editingVideo ? 'Save Video Changes' : 'Attach Video to Lesson'
               )}
             </button>
           </div>

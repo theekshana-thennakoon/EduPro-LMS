@@ -814,7 +814,9 @@ export const lmsService = {
       title: video.title,
       url: video.url,
       duration: video.duration || '15:00',
-      description: video.description || ''
+      description: video.description || '',
+      fileName: video.fileName || '',
+      fileSize: video.fileSize || ''
     };
 
     const updatedVideos = [...(lesson.videos || []), newVideo];
@@ -835,7 +837,9 @@ export const lmsService = {
       title: updatedVideo.title || videos[vIndex].title,
       url: updatedVideo.url || videos[vIndex].url,
       duration: updatedVideo.duration || videos[vIndex].duration || '15:00',
-      description: updatedVideo.description !== undefined ? updatedVideo.description : videos[vIndex].description
+      description: updatedVideo.description !== undefined ? updatedVideo.description : videos[vIndex].description,
+      fileName: updatedVideo.fileName !== undefined ? updatedVideo.fileName : (videos[vIndex].fileName || ''),
+      fileSize: updatedVideo.fileSize !== undefined ? updatedVideo.fileSize : (videos[vIndex].fileSize || '')
     };
 
     await lmsService.updateLesson(lessonId, { videos });

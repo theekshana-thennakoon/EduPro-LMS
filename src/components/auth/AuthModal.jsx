@@ -5,7 +5,7 @@ import { useLms } from '../../context/LmsContext';
 import { Modal } from '../common/Modal';
 
 export const AuthModal = ({ isOpen, onClose, initialTab = 'student-login' }) => {
-  const { login, registerStudent, loginWithGoogle } = useAuth();
+  const { login, registerStudent } = useAuth();
   const { classes, grades, showToast } = useLms();
 
   const [tab, setTab] = useState(initialTab); // 'student-login', 'student-register', 'teacher-login'
@@ -82,20 +82,6 @@ export const AuthModal = ({ isOpen, onClose, initialTab = 'student-login' }) => 
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await loginWithGoogle('student', targetClassId || null);
-      showToast('Authenticated via Google Account!', 'success');
-      onClose();
-    } catch (err) {
-      setError(err.message || 'Google sign in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Quick Demo fill buttons for hassle-free testing
   const fillDemoStudent = () => {
     setEmail('student@lms.com');
@@ -146,62 +132,6 @@ export const AuthModal = ({ isOpen, onClose, initialTab = 'student-login' }) => 
           }}
         >
           {error}
-        </div>
-      )}
-
-      {/* Google One-Click Button (Available for Students) */}
-      {(tab === 'student-login' || tab === 'student-register') && (
-        <div style={{ marginBottom: '1.25rem' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-block"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            style={{
-              padding: '0.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.75rem',
-              border: '1px solid var(--border-color)',
-              fontWeight: 600
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-              />
-            </svg>
-            Continue with Google Account
-          </button>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              margin: '1.25rem 0',
-              color: 'var(--text-muted)',
-              fontSize: '0.8rem'
-            }}
-          >
-            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
-            <span>OR WITH EMAIL</span>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
-          </div>
         </div>
       )}
 

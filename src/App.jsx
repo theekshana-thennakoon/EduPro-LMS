@@ -7,6 +7,7 @@ import { Sidebar } from './components/common/Sidebar';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { Toast } from './components/common/Toast';
 import { AuthModal } from './components/auth/AuthModal';
+import { LoadingSplash } from './components/common/LoadingSplash';
 
 // Admin Components
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -220,22 +221,7 @@ export const App = () => {
   };
 
   if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          background: 'var(--bg-primary)',
-          color: 'var(--primary)',
-          fontWeight: 700,
-          fontSize: '1.25rem'
-        }}
-      >
-        Initializing EduPro LMS...
-      </div>
-    );
+    return <LoadingSplash />;
   }
 
   return (

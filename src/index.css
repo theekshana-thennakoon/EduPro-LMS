@@ -1034,6 +1034,10 @@ textarea.form-control {
 }
 
 /* Classroom Layout: Video Player + Playlist / Lessons Syllabus */
+.classroom-container {
+  width: 100%;
+}
+
 .classroom-layout-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1058,6 +1062,8 @@ textarea.form-control {
   margin-bottom: 1.25rem;
   flex-wrap: wrap;
   gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .classroom-title-group {
@@ -1087,6 +1093,29 @@ textarea.form-control {
   margin-bottom: 1rem;
   gap: 0.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.classroom-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.classroom-nav-counter {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.classroom-nav-syllabus-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .classroom-player-card {
@@ -1094,11 +1123,15 @@ textarea.form-control {
   margin-bottom: 1.25rem;
   border-radius: var(--radius-lg);
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .classroom-tabs-card {
   padding: 1.25rem;
   border-radius: var(--radius-lg);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .classroom-tabs-header {
@@ -1112,6 +1145,8 @@ textarea.form-control {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .classroom-tabs-header::-webkit-scrollbar {
@@ -1167,12 +1202,19 @@ textarea.form-control {
     align-items: stretch;
     gap: 0.75rem;
     margin-bottom: 1rem;
+    width: 100%;
   }
 
   .classroom-title-group {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+  }
+
+  .classroom-complete-btn {
+    width: 100% !important;
+    justify-content: center;
   }
 
   .classroom-course-title {
@@ -1183,16 +1225,32 @@ textarea.form-control {
     padding: 0.5rem;
     border-radius: var(--radius-md);
     margin-bottom: 1rem;
+    width: 100%;
   }
 
   .classroom-tabs-card {
     padding: 0.85rem;
     border-radius: var(--radius-md);
+    width: 100%;
   }
 
   .classroom-nav-bar {
-    padding: 0.5rem 0.75rem;
+    width: 100% !important;
+    padding: 0.6rem 0.75rem;
     font-size: 0.8rem;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .classroom-nav-controls {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
   }
 
   .classroom-pdf-frame {
@@ -1218,6 +1276,33 @@ textarea.form-control {
 
   .access-denied-box {
     padding: 1.25rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .classroom-nav-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    width: 100% !important;
+  }
+
+  .classroom-nav-controls {
+    width: 100%;
+    justify-content: space-between;
+    display: flex;
+  }
+
+  .classroom-nav-controls .btn {
+    flex: 0 0 auto;
+    padding: 0.35rem 0.75rem !important;
+  }
+
+  .classroom-nav-syllabus-btn {
+    width: 100% !important;
+    justify-content: center;
+    padding: 0.45rem 0.75rem !important;
   }
 }
 

@@ -406,11 +406,11 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   const nextLesson = currentLessonIndex >= 0 && currentLessonIndex < lessons.length - 1 ? lessons[currentLessonIndex + 1] : null;
 
   return (
-    <div>
+    <div className="classroom-container">
       {/* Responsive Top Header & Breadcrumbs */}
       <div className="classroom-top-header">
         <div className="classroom-title-group">
-          <button onClick={onBack} className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
+          <button onClick={onBack} className="btn btn-secondary btn-sm classroom-back-btn" style={{ flexShrink: 0 }}>
             <ArrowLeft size={16} /> Courses
           </button>
           <div>
@@ -424,7 +424,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
         {activeLesson && (
           <button
             onClick={handleMarkCompleted}
-            className={`btn btn-sm ${isLessonCompleted ? 'btn-secondary' : 'btn-primary'}`}
+            className={`btn btn-sm classroom-complete-btn ${isLessonCompleted ? 'btn-secondary' : 'btn-primary'}`}
             disabled={markingCompleted}
             style={{ flexShrink: 0 }}
           >
@@ -446,7 +446,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
       {/* Quick Module Switcher Navigator Bar (Seamless Mobile Ergonomics) */}
       {activeLesson && lessons.length > 0 && (
         <div className="classroom-nav-bar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <div className="classroom-nav-controls">
             <button
               onClick={() => prevLesson && handleSelectLesson(prevLesson)}
               disabled={!prevLesson}
@@ -456,7 +456,7 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
             >
               <ChevronLeft size={14} /> Prev
             </button>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            <span className="classroom-nav-counter">
               Module {currentLessonIndex + 1} of {lessons.length}
             </span>
             <button
@@ -472,8 +472,8 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
 
           <button
             onClick={() => setMobileSyllabusOpen(!mobileSyllabusOpen)}
-            className="btn btn-secondary btn-sm"
-            style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            className="classroom-nav-syllabus-btn btn btn-secondary btn-sm"
+            style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
           >
             <List size={14} color="var(--primary)" /> {mobileSyllabusOpen ? 'Hide Syllabus' : `Syllabus (${lessons.length})`}
           </button>

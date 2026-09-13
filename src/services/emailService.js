@@ -369,10 +369,10 @@ const dispatchRealEmail = async ({ to, name, subject, otp, htmlContent, settings
     }
   }
 
-  // 2. If Resend API Key is provided
-  if (!delivered && emailConfig.provider === 'resend' && emailConfig.resendApiKey) {
+  // 2. If Resend API Key is provided (Sends Full Rich HTML Email)
+  if (!delivered && (emailConfig.provider === 'resend' || emailConfig.resendApiKey) && emailConfig.resendApiKey) {
     try {
-      deliveryMethod = 'Resend';
+      deliveryMethod = 'Resend (Rich HTML)';
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -395,11 +395,63 @@ const dispatchRealEmail = async ({ to, name, subject, otp, htmlContent, settings
     }
   }
 
-  // 3. Web3Forms Public Direct Email Gateway
+  // 3. If Brevo API Key is provided (Sends Full Rich HTML Email - Free 300 emails/day)
+  if (!delivered && (emailConfig.provider === 'brevo' || emailConfig.brevoApiKey) && emailConfig.brevoApiKey) {
+    try {
+      deliveryMethod = 'Brevo (Rich HTML)';
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': emailConfig.brevoApiKey
+        },
+        body: JSON.stringify({
+          sender: {
+            name: settings?.siteName || 'EduPro Academy',
+            email: emailConfig.fromEmail || settings?.supportEmail || 'support@edupro.org'
+          },
+          to: [{ email: to, name: name }],
+          subject: subject,
+          htmlContent: htmlContent
+        })
+      });
+      if (res.ok) {
+        delivered = true;
+      }
+    } catch (err) {
+      console.warn('Brevo attempt failed:', err);
+    }
+  }
+
+  // 4. Web3Forms Public Direct Email Gateway (Clean Formatted Plain-Text OTP)
   if (!delivered) {
     try {
       deliveryMethod = 'Web3Forms Gateway';
-      const apiKey = emailConfig.web3formsKey || '9d782c6a-1917-4c4e-970c-aa473f2ee202'; // Default active mail key
+      const apiKey = emailConfig.web3formsKey || '9d782c6a-1917-4c4e-970c-aa473f2ee202';
+      const cleanMessage = `
+========================================
+🔐 STUDENT ACCOUNT REGISTRATION OTP
+========================================
+
+Hello ${name},
+
+Thank you for registering with ${settings?.siteName || 'EduPro Academy'}.
+
+Your 6-Digit Verification Code is:
+
+       ▶▶  ${otp}  ◀◀
+
+⏰ Validity: This code expires in 10 minutes.
+
+📌 Next Steps:
+1. Return to the registration window.
+2. Enter the 6-digit code (${otp}) to activate your student account.
+3. Start learning and exploring your enrolled courses!
+
+🔒 Security Notice:
+Never share this code with anyone. EduPro staff will never ask for your password or verification code.
+========================================`;
+
       const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
         headers: {
@@ -408,14 +460,12 @@ const dispatchRealEmail = async ({ to, name, subject, otp, htmlContent, settings
         },
         body: JSON.stringify({
           access_key: apiKey,
-          subject: subject,
-          from_name: settings?.siteName || 'EduPro Learning Academy',
+          subject: `Your Verification Code: ${otp} - ${settings?.siteName || 'EduPro Academy'}`,
+          from_name: settings?.siteName || 'EduPro Academy',
           to_email: to,
-          recipient: to,
           name: name,
           email: to,
-          message: `Your One-Time Password (OTP) verification code is: ${otp}\n\nEnter this code on the registration page to activate your account. Valid for 10 minutes.`,
-          html: htmlContent
+          message: cleanMessage.trim()
         })
       });
 

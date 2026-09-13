@@ -30,6 +30,7 @@ export const SiteSettings = () => {
   const [emailProvider, setEmailProvider] = useState('web3forms');
   const [web3formsKey, setWeb3formsKey] = useState('9d782c6a-1917-4c4e-970c-aa473f2ee202');
   const [resendApiKey, setResendApiKey] = useState('');
+  const [brevoApiKey, setBrevoApiKey] = useState('');
   const [fromEmail, setFromEmail] = useState('');
   const [emailjsServiceId, setEmailjsServiceId] = useState('');
   const [emailjsTemplateId, setEmailjsTemplateId] = useState('');
@@ -75,6 +76,7 @@ export const SiteSettings = () => {
         setEmailProvider(settings.emailConfig.provider || 'web3forms');
         setWeb3formsKey(settings.emailConfig.web3formsKey || '9d782c6a-1917-4c4e-970c-aa473f2ee202');
         setResendApiKey(settings.emailConfig.resendApiKey || '');
+        setBrevoApiKey(settings.emailConfig.brevoApiKey || '');
         setFromEmail(settings.emailConfig.fromEmail || '');
         setEmailjsServiceId(settings.emailConfig.emailjsServiceId || '');
         setEmailjsTemplateId(settings.emailConfig.emailjsTemplateId || '');
@@ -107,6 +109,7 @@ export const SiteSettings = () => {
           provider: emailProvider,
           web3formsKey,
           resendApiKey,
+          brevoApiKey,
           fromEmail,
           emailjsServiceId,
           emailjsTemplateId,
@@ -478,8 +481,9 @@ export const SiteSettings = () => {
                 value={emailProvider}
                 onChange={(e) => setEmailProvider(e.target.value)}
               >
-                <option value="web3forms">Web3Forms Direct Gateway (Recommended / Instant / Free)</option>
-                <option value="resend">Resend API (Production Custom Domain)</option>
+                <option value="web3forms">Web3Forms Direct Gateway (Instant Delivery / Zero Setup)</option>
+                <option value="brevo">Brevo (Sendinblue) API (Full Rich Graphical HTML Email - Free)</option>
+                <option value="resend">Resend API (Full Rich Graphical HTML Email - Custom Domain)</option>
                 <option value="emailjs">EmailJS Client Gateway</option>
                 <option value="supabase">Supabase Auth OTP Mailer</option>
               </select>
@@ -496,9 +500,37 @@ export const SiteSettings = () => {
                   placeholder="e.g. 9d782c6a-1917-4c4e-970c-aa473f2ee202"
                 />
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-                  A default active key is provided. Or create a free dedicated access key instantly at <a href="https://web3forms.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>web3forms.com</a>.
+                  Sends clean formatted OTP messages directly to recipient inboxes. Create your key at <a href="https://web3forms.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>web3forms.com</a>.
                 </div>
               </div>
+            )}
+
+            {emailProvider === 'brevo' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Brevo (Sendinblue) API Key</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    value={brevoApiKey}
+                    onChange={(e) => setBrevoApiKey(e.target.value)}
+                    placeholder="xkeysib-..."
+                  />
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                    Sends full graphical CSS HTML emails (300 free emails/day). Get your free API key at <a href="https://brevo.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>brevo.com</a> &rarr; SMTP & API.
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Sender Email Address</label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={fromEmail}
+                    onChange={(e) => setFromEmail(e.target.value)}
+                    placeholder="e.g. your-verified-brevo-email@gmail.com"
+                  />
+                </div>
+              </>
             )}
 
             {emailProvider === 'resend' && (
@@ -513,7 +545,7 @@ export const SiteSettings = () => {
                     placeholder="re_xxxxxxxxxxxxxxxxxxxx"
                   />
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-                    Get your API key at <a href="https://resend.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>resend.com</a>
+                    Sends full graphical CSS HTML emails. Get your API key at <a href="https://resend.com" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>resend.com</a>
                   </div>
                 </div>
                 <div className="form-group">
@@ -523,7 +555,7 @@ export const SiteSettings = () => {
                     className="form-control"
                     value={fromEmail}
                     onChange={(e) => setFromEmail(e.target.value)}
-                    placeholder="EduPro Academy <onboarding@yourdomain.com>"
+                    placeholder="EduPro Academy <onboarding@resend.dev>"
                   />
                 </div>
               </>

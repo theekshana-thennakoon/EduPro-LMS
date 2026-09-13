@@ -227,11 +227,23 @@ export const lmsService = {
     if (isSupabaseConfigured() && supabase) {
       try {
         const dbPayload = mapSettingsToDb(updated);
-        const { error } = await supabase
+        let { error } = await supabase
           .from('site_settings')
           .upsert(dbPayload, { onConflict: 'id' });
 
-        if (error) {
+        // If the Supabase table doesn't have the 'email_config' column yet, retry without it
+        if (error && (error.message?.includes('email_config') || error.details?.includes('email_config') || error.code === 'PGRST204')) {
+          console.warn('Supabase site_settings column email_config not found. Saving core settings to Supabase and keeping email config in local cache.');
+          const { email_config, ...fallbackPayload } = dbPayload;
+          const retryRes = await supabase
+            .from('site_settings')
+            .upsert(fallbackPayload, { onConflict: 'id' });
+          if (retryRes.error) {
+            console.error('Supabase fallback updateSettings error:', retryRes.error);
+            throw new Error(retryRes.error.message || 'Failed to save settings to database');
+          }
+          error = null;
+        } else if (error) {
           console.error('Supabase updateSettings error:', error);
           throw new Error(error.message || 'Failed to save settings to database');
         }

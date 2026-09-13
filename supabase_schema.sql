@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
   allow_self_registration BOOLEAN DEFAULT true,
   theme_mode TEXT DEFAULT 'light',
   payment_gateway JSONB DEFAULT '{"provider": "Stripe Secure Pay", "testMode": true, "publishableKey": "pk_test_demo", "bankTransferInstructions": "Bank: Silicon Horizon Bank | Account: 8840-2910-4491"}'::jsonb,
+  email_config JSONB DEFAULT '{"provider": "web3forms", "web3formsKey": "9d782c6a-1917-4c4e-970c-aa473f2ee202"}'::jsonb,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
@@ -97,6 +98,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS watch_later_video_ids JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE classes ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT true;
 ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS theme_mode TEXT DEFAULT 'light';
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS email_config JSONB DEFAULT '{"provider": "web3forms", "web3formsKey": "9d782c6a-1917-4c4e-970c-aa473f2ee202"}'::jsonb;
 
 -- 7. PAYMENTS & TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS payments (

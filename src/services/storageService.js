@@ -30,6 +30,15 @@ const INITIAL_SETTINGS = {
     testMode: true,
     publishableKey: 'pk_test_51LmsEduDemoSampleKey998877',
     bankTransferInstructions: 'Bank: Silicon Horizon Bank | Account: 8840-2910-4491 | Swift: SHBKUS33'
+  },
+  emailConfig: {
+    provider: 'web3forms',
+    web3formsKey: '9d782c6a-1917-4c4e-970c-aa473f2ee202',
+    resendApiKey: '',
+    fromEmail: '',
+    emailjsServiceId: '',
+    emailjsTemplateId: '',
+    emailjsPublicKey: ''
   }
 };
 

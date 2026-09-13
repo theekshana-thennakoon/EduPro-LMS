@@ -25,6 +25,15 @@ export const mapSettingsFromDb = (db) => {
       testMode: true,
       publishableKey: 'pk_test_demo',
       bankTransferInstructions: 'Bank: Silicon Horizon Bank | Account: 8840-2910-4491'
+    },
+    emailConfig: db.email_config || {
+      provider: 'web3forms',
+      web3formsKey: '9d782c6a-1917-4c4e-970c-aa473f2ee202',
+      resendApiKey: '',
+      fromEmail: '',
+      emailjsServiceId: '',
+      emailjsTemplateId: '',
+      emailjsPublicKey: ''
     }
   };
 };
@@ -44,6 +53,7 @@ export const mapSettingsToDb = (s) => ({
   allow_self_registration: s.allowSelfRegistration !== false,
   theme_mode: s.themeMode || 'light',
   payment_gateway: s.paymentGateway || {},
+  email_config: s.emailConfig || {},
   updated_at: new Date().toISOString()
 });
 

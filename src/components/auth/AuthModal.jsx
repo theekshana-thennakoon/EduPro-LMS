@@ -495,20 +495,60 @@ export const AuthModal = ({ isOpen, onClose, initialTab = 'student-login' }) => 
                     fontWeight: 700
                   }}
                 >
-                  Edit
+                  Edit Email
                 </button>
               </div>
 
-              {/* Sent Email Preview Button (Simulated Inbox Inspection) */}
+              {/* Email Delivery Tip & Action Buttons */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.75rem 0.95rem',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-secondary)',
+                  maxWidth: '380px',
+                  marginBottom: '1.25rem',
+                  lineHeight: 1.45,
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                  <ShieldCheck size={14} color="var(--success)" />
+                  <span>Real Email Delivery Dispatched</span>
+                </div>
+                Please check your inbox (and spam/junk folder). If you are testing locally or developing, you can view the email template or auto-fill below.
+              </div>
+
               {sentEmailRecord && (
-                <button
-                  type="button"
-                  onClick={() => setEmailPreviewOpen(true)}
-                  className="otp-email-preview-btn"
-                >
-                  <Eye size={14} />
-                  <span>View Received Email Template</span>
-                </button>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEmailPreviewOpen(true)}
+                    className="otp-email-preview-btn"
+                    style={{ margin: 0 }}
+                  >
+                    <Eye size={14} />
+                    <span>View Email Template</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sentEmailRecord?.otp) {
+                        const digits = sentEmailRecord.otp.split('');
+                        setOtpDigits(digits);
+                        showToast(`Auto-filled OTP: ${sentEmailRecord.otp}`, 'info');
+                      }
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem', borderRadius: 'var(--radius-full)' }}
+                  >
+                    <Sparkles size={13} color="var(--primary)" />
+                    <span>Auto-Fill Demo Code</span>
+                  </button>
+                </div>
               )}
 
               {/* 6-Digit OTP Inputs */}

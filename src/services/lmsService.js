@@ -1,6 +1,7 @@
 import { storage, STORAGE_KEYS } from './storageService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { mapUserFromDb, mapUserToDb } from './authService';
+import { mediaStorageService } from './mediaStorageService';
 
 // ================= DATA MAPPERS (Database snake_case <-> Frontend camelCase) =================
 
@@ -803,6 +804,22 @@ export const lmsService = {
   },
 
   deleteLesson: async (id) => {
+    const lesson = await lmsService.getLessonById(id);
+    if (lesson) {
+      // Clean up any indexeddb video blobs
+      (lesson.videos || []).forEach((v) => {
+        if (v.url && v.url.startsWith('indexeddb://')) {
+          mediaStorageService.deleteMediaBlob(v.url).catch(() => {});
+        }
+      });
+      // Clean up any indexeddb note PDF blobs
+      (lesson.notes || []).forEach((n) => {
+        if (n.pdfUrl && n.pdfUrl.startsWith('indexeddb://')) {
+          mediaStorageService.deleteMediaBlob(n.pdfUrl).catch(() => {});
+        }
+      });
+    }
+
     if (isSupabaseConfigured() && supabase) {
       try {
         const { error } = await supabase
@@ -854,6 +871,11 @@ export const lmsService = {
     const vIndex = videos.findIndex((v) => v.id === videoId);
     if (vIndex === -1) throw new Error('Video not found');
 
+    // If changing video URL from an old IndexedDB blob, clean up the old blob
+    if (videos[vIndex].url && videos[vIndex].url.startsWith('indexeddb://') && videos[vIndex].url !== updatedVideo.url) {
+      mediaStorageService.deleteMediaBlob(videos[vIndex].url).catch(() => {});
+    }
+
     videos[vIndex] = {
       ...videos[vIndex],
       title: updatedVideo.title || videos[vIndex].title,
@@ -871,6 +893,11 @@ export const lmsService = {
   deleteVideoFromLesson: async (lessonId, videoId) => {
     const lesson = await lmsService.getLessonById(lessonId);
     if (!lesson) throw new Error('Lesson not found');
+
+    const targetVideo = (lesson.videos || []).find((v) => v.id === videoId);
+    if (targetVideo?.url && targetVideo.url.startsWith('indexeddb://')) {
+      mediaStorageService.deleteMediaBlob(targetVideo.url).catch(() => {});
+    }
 
     const filtered = (lesson.videos || []).filter((v) => v.id !== videoId);
     await lmsService.updateLesson(lessonId, { videos: filtered });
@@ -949,6 +976,11 @@ export const lmsService = {
     const nIndex = notes.findIndex((n) => n.id === noteId);
     if (nIndex === -1) throw new Error('Note not found');
 
+    // If changing PDF URL from an old IndexedDB blob, clean up the old blob
+    if (notes[nIndex].pdfUrl && notes[nIndex].pdfUrl.startsWith('indexeddb://') && notes[nIndex].pdfUrl !== updatedNote.pdfUrl) {
+      mediaStorageService.deleteMediaBlob(notes[nIndex].pdfUrl).catch(() => {});
+    }
+
     notes[nIndex] = {
       ...notes[nIndex],
       title: updatedNote.title || notes[nIndex].title,
@@ -965,6 +997,11 @@ export const lmsService = {
   deleteNoteFromLesson: async (lessonId, noteId) => {
     const lesson = await lmsService.getLessonById(lessonId);
     if (!lesson) throw new Error('Lesson not found');
+
+    const targetNote = (lesson.notes || []).find((n) => n.id === noteId);
+    if (targetNote?.pdfUrl && targetNote.pdfUrl.startsWith('indexeddb://')) {
+      mediaStorageService.deleteMediaBlob(targetNote.pdfUrl).catch(() => {});
+    }
 
     const filtered = (lesson.notes || []).filter((n) => n.id !== noteId);
     await lmsService.updateLesson(lessonId, { notes: filtered });

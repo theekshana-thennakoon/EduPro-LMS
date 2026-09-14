@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
+import { mediaStorageService } from '../../services/mediaStorageService';
 import { Modal } from '../common/Modal';
 
 export const LessonManager = ({ initialClassId }) => {
@@ -59,6 +60,7 @@ export const LessonManager = ({ initialClassId }) => {
   const [editingVideo, setEditingVideo] = useState(null);
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState('');
   const [videoDuration, setVideoDuration] = useState('15:00');
   const [videoDescription, setVideoDescription] = useState('');
   const [videoFileName, setVideoFileName] = useState('');
@@ -69,6 +71,11 @@ export const LessonManager = ({ initialClassId }) => {
   const [isAutoDuration, setIsAutoDuration] = useState(false);
   const [targetLessonForVideo, setTargetLessonForVideo] = useState(null);
   const videoFileInputRef = useRef(null);
+
+  // Admin Video playback preview modal
+  const [adminVideoPreviewOpen, setAdminVideoPreviewOpen] = useState(false);
+  const [adminPreviewVideoUrl, setAdminPreviewVideoUrl] = useState('');
+  const [adminPreviewVideoTitle, setAdminPreviewVideoTitle] = useState('');
 
   // Quiz modal
   const [quizModalOpen, setQuizModalOpen] = useState(false);
@@ -197,6 +204,7 @@ export const LessonManager = ({ initialClassId }) => {
     setTargetLessonForVideo(lessonId);
     setVideoTitle('');
     setVideoUrl('');
+    setVideoPreviewUrl('');
     setVideoDuration('15:00');
     setVideoDescription('');
     setVideoFileName('');
@@ -208,7 +216,7 @@ export const LessonManager = ({ initialClassId }) => {
     setVideoModalOpen(true);
   };
 
-  const handleOpenEditVideo = (lessonId, video) => {
+  const handleOpenEditVideo = async (lessonId, video) => {
     setEditingVideo(video);
     setTargetLessonForVideo(lessonId);
     setVideoTitle(video.title || '');
@@ -217,14 +225,26 @@ export const LessonManager = ({ initialClassId }) => {
     setVideoDescription(video.description || '');
     setVideoFileName(video.fileName || '');
     setVideoFileSize(video.fileSize || '');
-    setVideoUploadType(video.url?.startsWith('data:') || video.fileName ? 'file' : (video.url ? 'url' : 'file'));
+    setVideoUploadType(
+      video.url?.startsWith('indexeddb://') || video.url?.startsWith('data:') || video.fileName
+        ? 'file'
+        : video.url ? 'url' : 'file'
+    );
     setUploadingVideo(false);
     setVideoDragOver(false);
     setIsAutoDuration(false);
+
+    try {
+      const resolved = await mediaStorageService.resolveMediaUrl(video.url || '');
+      setVideoPreviewUrl(resolved);
+    } catch (e) {
+      setVideoPreviewUrl(video.url || '');
+    }
+
     setVideoModalOpen(true);
   };
 
-  const handleVideoFileUpload = (e) => {
+  const handleVideoFileUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file) return;
 
@@ -233,8 +253,8 @@ export const LessonManager = ({ initialClassId }) => {
       return;
     }
 
-    if (file.size > 200 * 1024 * 1024) {
-      showToast('Video file exceeds 200MB limit. Consider direct stream URL for large files.', 'error');
+    if (file.size > 500 * 1024 * 1024) {
+      showToast('Video file exceeds 500MB limit. Consider direct stream URL for large files.', 'error');
       return;
     }
 
@@ -242,30 +262,30 @@ export const LessonManager = ({ initialClassId }) => {
     const sizeInMb = file.size / (1024 * 1024);
     const sizeStr = sizeInMb < 1 ? `${(file.size / 1024).toFixed(0)} KB` : `${sizeInMb.toFixed(1)} MB`;
 
-    // Attempt to extract duration using a temporary video element
     try {
-      const tempUrl = URL.createObjectURL(file);
-      const tempVideo = document.createElement('video');
-      tempVideo.preload = 'metadata';
-      tempVideo.src = tempUrl;
-      tempVideo.onloadedmetadata = () => {
-        if (tempVideo.duration && !isNaN(tempVideo.duration)) {
-          const formatted = formatSecondsToDuration(tempVideo.duration);
-          setVideoDuration(formatted);
-          setIsAutoDuration(true);
-        }
-        URL.revokeObjectURL(tempUrl);
-      };
-    } catch (err) {
-      console.warn('Could not auto-extract video duration:', err);
-    }
-
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const dataUrl = uploadEvent.target.result;
-      setVideoUrl(dataUrl);
+      // Store binary blob in high-performance IndexedDB without blocking base64 conversion
+      const mediaResult = await mediaStorageService.saveMediaBlob(file);
+      setVideoUrl(mediaResult.url);
+      setVideoPreviewUrl(mediaResult.previewUrl);
       setVideoFileName(file.name);
       setVideoFileSize(sizeStr);
+
+      // Extract duration using the active preview object URL
+      try {
+        const tempVideo = document.createElement('video');
+        tempVideo.preload = 'metadata';
+        tempVideo.src = mediaResult.previewUrl;
+        tempVideo.onloadedmetadata = () => {
+          if (tempVideo.duration && !isNaN(tempVideo.duration)) {
+            const formatted = formatSecondsToDuration(tempVideo.duration);
+            setVideoDuration(formatted);
+            setIsAutoDuration(true);
+          }
+        };
+      } catch (err) {
+        console.warn('Could not auto-extract video duration:', err);
+      }
+
       if (!videoTitle.trim()) {
         const cleanName = file.name
           .replace(/\.(mp4|webm|mov|mkv|ogg|m4v)$/i, '')
@@ -273,18 +293,19 @@ export const LessonManager = ({ initialClassId }) => {
           .replace(/\b\w/g, (c) => c.toUpperCase());
         setVideoTitle(cleanName);
       }
-      setUploadingVideo(false);
+
       showToast(`Video "${file.name}" ready to attach!`, 'success');
-    };
-    reader.onerror = () => {
-      showToast('Failed to read video file from device', 'error');
+    } catch (err) {
+      console.error('Failed to attach video:', err);
+      showToast(err.message || 'Failed to process video file', 'error');
+    } finally {
       setUploadingVideo(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveAttachedVideo = () => {
     setVideoUrl('');
+    setVideoPreviewUrl('');
     setVideoFileName('');
     setVideoFileSize('');
     setIsAutoDuration(false);
@@ -328,6 +349,7 @@ export const LessonManager = ({ initialClassId }) => {
       }
       setVideoModalOpen(false);
       setEditingVideo(null);
+      setVideoPreviewUrl('');
       await fetchLessons(selectedClassId);
     } catch (err) {
       showToast(err.message || 'Failed to save video', 'error');
@@ -347,6 +369,17 @@ export const LessonManager = ({ initialClassId }) => {
       showToast('Failed to remove video', 'error');
     } finally {
       setDeletingVideoId(null);
+    }
+  };
+
+  const handleTestVideoPlayback = async (video) => {
+    try {
+      const resolved = await mediaStorageService.resolveMediaUrl(video.url);
+      setAdminPreviewVideoUrl(resolved);
+      setAdminPreviewVideoTitle(video.title || 'Video Lecture Preview');
+      setAdminVideoPreviewOpen(true);
+    } catch (err) {
+      showToast('Could not load video playback', 'error');
     }
   };
 
@@ -533,7 +566,7 @@ export const LessonManager = ({ initialClassId }) => {
     setNoteModalOpen(true);
   };
 
-  const handlePdfFileUpload = (e) => {
+  const handlePdfFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -542,8 +575,8 @@ export const LessonManager = ({ initialClassId }) => {
       return;
     }
 
-    if (file.size > 25 * 1024 * 1024) {
-      showToast('PDF file exceeds 25MB limit', 'error');
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('PDF file exceeds 50MB limit', 'error');
       return;
     }
 
@@ -551,23 +584,21 @@ export const LessonManager = ({ initialClassId }) => {
     const sizeInMb = file.size / (1024 * 1024);
     const sizeStr = sizeInMb < 0.1 ? `${(file.size / 1024).toFixed(0)} KB` : `${sizeInMb.toFixed(1)} MB`;
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const base64Data = uploadEvent.target.result;
-      setNotePdfUrl(base64Data);
+    try {
+      const mediaResult = await mediaStorageService.saveMediaBlob(file);
+      setNotePdfUrl(mediaResult.url);
       setNoteFileName(file.name);
       setNoteFileSize(sizeStr);
       if (!noteTitle) {
         setNoteTitle(file.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '));
       }
-      setUploadingPdf(false);
       showToast(`PDF "${file.name}" uploaded & ready to attach!`, 'success');
-    };
-    reader.onerror = () => {
+    } catch (err) {
+      console.error('Failed to upload PDF:', err);
+      showToast(err.message || 'Failed to process PDF file', 'error');
+    } finally {
       setUploadingPdf(false);
-      showToast('Failed to read PDF file', 'error');
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveAttachedPdf = () => {
@@ -577,10 +608,15 @@ export const LessonManager = ({ initialClassId }) => {
     showToast('Attached PDF removed', 'info');
   };
 
-  const handleOpenPdfPreview = (pdfUrl, title) => {
-    setPreviewPdfUrl(pdfUrl);
-    setPreviewPdfTitle(title || 'PDF Document Preview');
-    setPdfPreviewModalOpen(true);
+  const handleOpenPdfPreview = async (pdfUrl, title) => {
+    try {
+      const resolved = await mediaStorageService.resolveMediaUrl(pdfUrl);
+      setPreviewPdfUrl(resolved);
+      setPreviewPdfTitle(title || 'PDF Document Preview');
+      setPdfPreviewModalOpen(true);
+    } catch (err) {
+      showToast('Could not load PDF document preview', 'error');
+    }
   };
 
   const handleSaveNote = async (e) => {
@@ -905,33 +941,41 @@ export const LessonManager = ({ initialClassId }) => {
                                     </div>
                                   </div>
 
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                                    Duration: {vid.duration}
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span>Duration: <strong>{vid.duration}</strong></span>
+                                    {vid.fileSize && <span>• Size: {vid.fileSize}</span>}
                                   </div>
                                   <div
                                     style={{
                                       fontSize: '0.75rem',
-                                      color: 'var(--primary)',
+                                      color: 'var(--text-secondary)',
                                       wordBreak: 'break-all',
                                       background: 'var(--bg-secondary)',
-                                      padding: '0.4rem',
+                                      padding: '0.4rem 0.6rem',
                                       borderRadius: '4px',
-                                      marginBottom: '0.5rem'
+                                      marginBottom: '0.75rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.4rem'
                                     }}
                                   >
-                                    {vid.url}
+                                    <Film size={12} color="var(--primary)" />
+                                    <span>
+                                      {vid.url?.startsWith('indexeddb://')
+                                        ? `Device Video File: ${vid.fileName || 'Attached Local Media'}`
+                                        : vid.url}
+                                    </span>
                                   </div>
                                 </div>
 
-                                <a
-                                  href={vid.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestVideoPlayback(vid)}
                                   className="btn btn-secondary btn-sm"
-                                  style={{ fontSize: '0.75rem', width: '100%' }}
+                                  style={{ fontSize: '0.75rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                                 >
-                                  Test Video Playback <ExternalLink size={12} />
-                                </a>
+                                  <Play size={12} color="var(--primary)" /> Test Video Playback
+                                </button>
                               </div>
                             ))}
                           </div>
@@ -1252,17 +1296,24 @@ export const LessonManager = ({ initialClassId }) => {
             {videoUrl ? (
               <div className="video-preview-card">
                 <div className="video-player-preview-wrapper">
-                  {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                  {(videoPreviewUrl || videoUrl).includes('youtube.com') || (videoPreviewUrl || videoUrl).includes('youtu.be') ? (
                     <iframe
-                      src={videoUrl.replace('watch?v=', 'embed/')}
+                      src={(videoPreviewUrl || videoUrl).replace('watch?v=', 'embed/')}
                       title="Video Preview"
-                      style={{ width: '100%', height: '220px', border: 'none' }}
+                      style={{ width: '100%', height: '220px', border: 'none', borderRadius: '4px' }}
+                      allowFullScreen
+                    />
+                  ) : (videoPreviewUrl || videoUrl).includes('drive.google.com') ? (
+                    <iframe
+                      src={videoPreviewUrl || videoUrl}
+                      title="Google Drive Video Preview"
+                      style={{ width: '100%', height: '220px', border: 'none', borderRadius: '4px' }}
                       allowFullScreen
                     />
                   ) : (
                     <video
                       controls
-                      src={videoUrl}
+                      src={videoPreviewUrl || videoUrl}
                       style={{ width: '100%', maxHeight: '220px', borderRadius: '4px' }}
                     >
                       Your browser does not support HTML5 video preview.
@@ -1297,6 +1348,7 @@ export const LessonManager = ({ initialClassId }) => {
                           videoFileInputRef.current.click();
                         } else {
                           setVideoUrl('');
+                          setVideoPreviewUrl('');
                         }
                       }}
                       className="btn btn-secondary btn-sm"
@@ -1345,10 +1397,10 @@ export const LessonManager = ({ initialClassId }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem' }}>
                           <Loader2 size={36} className="animate-spin" color="var(--primary)" />
                           <span style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            Reading & Encoding Video File...
+                            Storing & Optimizing Video Lecture...
                           </span>
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            Detecting duration and optimizing playback metadata
+                            Saving binary media into high-performance local storage
                           </span>
                         </div>
                       ) : (
@@ -1360,7 +1412,7 @@ export const LessonManager = ({ initialClassId }) => {
                             Click to upload or drag & drop video from device
                           </span>
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                            Upload lecture videos directly from your computer or phone (Max 200MB)
+                            Upload lecture videos directly from your computer or phone (Instant IndexedDB Storage)
                           </span>
                           <div className="video-format-pills">
                             <span className="video-format-pill">MP4</span>
@@ -1379,11 +1431,18 @@ export const LessonManager = ({ initialClassId }) => {
                       <input
                         type="url"
                         className="form-control"
-                        placeholder="Paste MP4 direct URL, YouTube embed, or cloud video link..."
+                        placeholder="Paste MP4 direct URL, YouTube link, Google Drive link, or stream URL..."
                         value={videoUrl}
-                        onChange={(e) => {
-                          setVideoUrl(e.target.value);
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setVideoUrl(val);
                           setVideoFileName('');
+                          if (val.trim()) {
+                            const resolved = await mediaStorageService.resolveMediaUrl(val.trim());
+                            setVideoPreviewUrl(resolved);
+                          } else {
+                            setVideoPreviewUrl('');
+                          }
                         }}
                         style={{ paddingRight: '2.5rem' }}
                       />
@@ -2071,6 +2130,63 @@ export const LessonManager = ({ initialClassId }) => {
               className="btn btn-secondary"
             >
               Close Preview
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ================= MODAL: ADMIN VIDEO PLAYBACK PREVIEW ================= */}
+      <Modal
+        isOpen={adminVideoPreviewOpen}
+        onClose={() => {
+          setAdminVideoPreviewOpen(false);
+          setAdminPreviewVideoUrl('');
+        }}
+        title={adminPreviewVideoTitle || 'Video Lecture Playback Test'}
+        size="lg"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ width: '100%', background: '#000000', borderRadius: 'var(--radius-md)', overflow: 'hidden', minHeight: '340px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {adminPreviewVideoUrl.includes('youtube.com') || adminPreviewVideoUrl.includes('youtu.be') ? (
+              <iframe
+                src={adminPreviewVideoUrl.replace('watch?v=', 'embed/')}
+                title={adminPreviewVideoTitle}
+                style={{ width: '100%', height: '380px', border: 'none' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : adminPreviewVideoUrl.includes('drive.google.com') ? (
+              <iframe
+                src={adminPreviewVideoUrl}
+                title={adminPreviewVideoTitle}
+                style={{ width: '100%', height: '380px', border: 'none' }}
+                allowFullScreen
+              />
+            ) : (
+              <video
+                controls
+                autoPlay
+                src={adminPreviewVideoUrl}
+                style={{ width: '100%', maxHeight: '420px' }}
+              >
+                Your browser does not support HTML5 video playback.
+              </video>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Verified stream playback & compatibility
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setAdminVideoPreviewOpen(false);
+                setAdminPreviewVideoUrl('');
+              }}
+              className="btn btn-secondary"
+            >
+              Close Player
             </button>
           </div>
         </div>

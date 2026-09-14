@@ -29,7 +29,80 @@ import confetti from 'canvas-confetti';
 import { useAuth } from '../../context/AuthContext';
 import { useLms } from '../../context/LmsContext';
 import { lmsService } from '../../services/lmsService';
+import { mediaStorageService } from '../../services/mediaStorageService';
 import { Modal } from '../common/Modal';
+
+// Dedicated asynchronous Interactive PDF frame component
+const InteractivePdfFrame = ({ pdfUrl, title, fileName }) => {
+  const [resolvedUrl, setResolvedUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isCancelled = false;
+    mediaStorageService
+      .resolveMediaUrl(pdfUrl)
+      .then((url) => {
+        if (!isCancelled) {
+          setResolvedUrl(url);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setResolvedUrl(pdfUrl);
+          setLoading(false);
+        }
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [pdfUrl]);
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+        background: '#0f172a'
+      }}
+    >
+      <div
+        style={{
+          padding: '0.65rem 1rem',
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-color)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '0.82rem',
+          color: 'var(--text-secondary)',
+          flexWrap: 'wrap',
+          gap: '0.5rem'
+        }}
+      >
+        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <FileText size={15} color="#ef4444" /> Interactive PDF Viewer: {fileName}
+        </span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          Scroll, zoom, and print directly within the viewer
+        </span>
+      </div>
+      {loading ? (
+        <div style={{ height: '320px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', gap: '0.5rem' }}>
+          <Loader2 size={24} className="animate-spin" color="var(--primary)" />
+          <span style={{ fontSize: '0.85rem' }}>Loading PDF Document...</span>
+        </div>
+      ) : (
+        <iframe
+          src={resolvedUrl}
+          title={title}
+          className="classroom-pdf-frame"
+        />
+      )}
+    </div>
+  );
+};
 
 export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedAuth }) => {
   const { currentUser, isAuthenticated } = useAuth();
@@ -39,6 +112,8 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
   const [lessons, setLessons] = useState([]);
   const [activeLesson, setActiveLesson] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
+  const [resolvedVideoUrl, setResolvedVideoUrl] = useState('');
+  const [loadingVideoSource, setLoadingVideoSource] = useState(false);
   const [activeTab, setActiveTab] = useState('video'); // 'video', 'quiz', 'notes'
 
   // Anti-Screen Recording & Window Blur Protection
@@ -117,6 +192,34 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
     };
     loadLessons();
   }, [classId, classes, initialLessonId]);
+
+  // Resolve active video URL asynchronously (for IndexedDB Blobs, YouTube, Google Drive, etc.)
+  useEffect(() => {
+    let isCancelled = false;
+    const resolveCurrentVideo = async () => {
+      if (!activeVideo || !activeVideo.url) {
+        setResolvedVideoUrl('');
+        return;
+      }
+      setLoadingVideoSource(true);
+      try {
+        const resolved = await mediaStorageService.resolveMediaUrl(activeVideo.url);
+        if (!isCancelled) {
+          setResolvedVideoUrl(resolved);
+        }
+      } catch (err) {
+        console.error('Error resolving active video URL:', err);
+        if (!isCancelled) setResolvedVideoUrl(activeVideo.url);
+      } finally {
+        if (!isCancelled) setLoadingVideoSource(false);
+      }
+    };
+
+    resolveCurrentVideo();
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeVideo]);
 
   // When active lesson changes, sync video and quiz
   const handleSelectLesson = (lesson) => {
@@ -223,11 +326,26 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
     setQuizScore(0);
   };
 
-  // Real PDF & Lecture notes download handler
-  const handleDownloadNotes = (note) => {
+  // Real PDF & Lecture notes download handler with IndexedDB & Cloud URL support
+  const handleDownloadNotes = async (note) => {
     setDownloadingNoteId(note.id);
     try {
-      if (note.pdfUrl && note.pdfUrl.startsWith('data:')) {
+      if (note.pdfUrl && note.pdfUrl.startsWith('indexeddb://')) {
+        const blob = await mediaStorageService.getMediaBlob(note.pdfUrl);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = note.fileName || `${note.title.replace(/\s+/g, '_')}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+          showToast(`Downloaded "${link.download}"`, 'success');
+        } else {
+          showToast('Could not retrieve PDF from local storage', 'error');
+        }
+      } else if (note.pdfUrl && note.pdfUrl.startsWith('data:')) {
         // Base64 Data URL -> download binary PDF directly
         const link = document.createElement('a');
         link.href = note.pdfUrl;
@@ -237,7 +355,6 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
         document.body.removeChild(link);
         showToast(`Downloaded "${link.download}"`, 'success');
       } else if (note.pdfUrl && note.pdfUrl.startsWith('http')) {
-        // Direct Web URL -> open / download in new tab
         const link = document.createElement('a');
         link.href = note.pdfUrl;
         link.target = '_blank';
@@ -248,7 +365,6 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
         document.body.removeChild(link);
         showToast(`Opening / Downloading "${note.fileName || 'notes'}"...`, 'success');
       } else {
-        // Plain text fallback
         const file = new Blob([`# ${note.title}\n\n${note.content || ''}`], { type: 'text/plain' });
         const element = document.createElement('a');
         element.href = URL.createObjectURL(file);
@@ -561,9 +677,22 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                         </div>
                       )}
 
-                      {activeVideo.url.includes('youtube.com') || activeVideo.url.includes('youtu.be') ? (
+                      {loadingVideoSource ? (
+                        <div style={{ height: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#ffffff', gap: '0.75rem' }}>
+                          <Loader2 size={36} className="animate-spin" color="var(--primary)" />
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Loading Lecture Video Stream...</span>
+                        </div>
+                      ) : (resolvedVideoUrl || activeVideo.url).includes('youtube.com') || (resolvedVideoUrl || activeVideo.url).includes('youtu.be') ? (
                         <iframe
-                          src={activeVideo.url.replace('watch?v=', 'embed/')}
+                          src={(resolvedVideoUrl || activeVideo.url).replace('watch?v=', 'embed/')}
+                          title={activeVideo.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
+                      ) : (resolvedVideoUrl || activeVideo.url).includes('drive.google.com') ? (
+                        <iframe
+                          src={resolvedVideoUrl || activeVideo.url}
                           title={activeVideo.title}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
@@ -577,8 +706,8 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
                           disableRemotePlayback
                           onContextMenu={(e) => e.preventDefault()}
                           onDragStart={(e) => e.preventDefault()}
-                          src={activeVideo.url}
-                          key={activeVideo.url}
+                          src={resolvedVideoUrl || activeVideo.url}
+                          key={resolvedVideoUrl || activeVideo.url}
                           poster={currentClass?.thumbnail}
                         >
                           Your browser does not support HTML5 video.
@@ -1003,41 +1132,11 @@ export const ClassroomView = ({ classId, initialLessonId = null, onBack, onNeedA
 
                             {/* Embedded Interactive PDF Viewer */}
                             {note.pdfUrl && (
-                              <div
-                                style={{
-                                  border: '1px solid var(--border-color)',
-                                  borderRadius: 'var(--radius-md)',
-                                  overflow: 'hidden',
-                                  background: '#0f172a'
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    padding: '0.65rem 1rem',
-                                    background: 'var(--bg-secondary)',
-                                    borderBottom: '1px solid var(--border-color)',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    fontSize: '0.82rem',
-                                    color: 'var(--text-secondary)',
-                                    flexWrap: 'wrap',
-                                    gap: '0.5rem'
-                                  }}
-                                >
-                                  <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <FileText size={15} color="#ef4444" /> Interactive PDF Viewer: {note.fileName}
-                                  </span>
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                    Scroll, zoom, and print directly within the viewer
-                                  </span>
-                                </div>
-                                <iframe
-                                  src={note.pdfUrl}
-                                  title={note.title}
-                                  className="classroom-pdf-frame"
-                                />
-                              </div>
+                              <InteractivePdfFrame
+                                pdfUrl={note.pdfUrl}
+                                title={note.title}
+                                fileName={note.fileName}
+                              />
                             )}
                           </div>
                         ))}

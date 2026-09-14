@@ -193,3 +193,29 @@ INSERT INTO users (id, name, email, password, role, title, avatar)
 VALUES
   ('teacher-1', 'Dr. Alistair Vance, Ph.D.', 'teacher@edupro.org', 'admin123', 'teacher', 'Head of Pure Sciences & Lead LMS Administrator', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80')
 ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
+-- 9. SUPABASE STORAGE BUCKET FOR LESSON VIDEOS & MEDIA
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('lesson-videos', 'lesson-videos', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Storage RLS Policies (Allow public streaming and teacher uploads)
+DROP POLICY IF EXISTS "Public Read lesson-videos" ON storage.objects;
+DROP POLICY IF EXISTS "Public Upload lesson-videos" ON storage.objects;
+DROP POLICY IF EXISTS "Public Update lesson-videos" ON storage.objects;
+DROP POLICY IF EXISTS "Public Delete lesson-videos" ON storage.objects;
+
+CREATE POLICY "Public Read lesson-videos" ON storage.objects
+FOR SELECT USING ( bucket_id = 'lesson-videos' );
+
+CREATE POLICY "Public Upload lesson-videos" ON storage.objects
+FOR INSERT WITH CHECK ( bucket_id = 'lesson-videos' );
+
+CREATE POLICY "Public Update lesson-videos" ON storage.objects
+FOR UPDATE USING ( bucket_id = 'lesson-videos' );
+
+CREATE POLICY "Public Delete lesson-videos" ON storage.objects
+FOR DELETE USING ( bucket_id = 'lesson-videos' );
+
